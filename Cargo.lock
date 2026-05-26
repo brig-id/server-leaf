@@ -364,7 +364,7 @@ dependencies = [
 [[package]]
 name = "brigid-api"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?branch=dev#e0d76dc85844f3e8071b363202ea6b8e1160a0be"
+source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
 dependencies = [
  "axum",
  "brigid-did",
@@ -389,7 +389,26 @@ dependencies = [
 [[package]]
 name = "brigid-crypto"
 version = "0.0.1"
-source = "git+https://github.com/brig-id/crypto?branch=dev#b5086b7dfc91228db288e7343ac1b22fdd563729"
+source = "git+https://github.com/brig-id/crypto?rev=65cb9a3982d901db9ebb2c234ff230ee1bb621f9#65cb9a3982d901db9ebb2c234ff230ee1bb621f9"
+dependencies = [
+ "aes-gcm",
+ "ed25519-dalek",
+ "hex",
+ "hkdf",
+ "ml-dsa",
+ "ml-kem",
+ "rand_core 0.6.4",
+ "secrecy",
+ "sha3 0.10.9",
+ "thiserror 2.0.18",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
+name = "brigid-crypto"
+version = "0.0.1"
+source = "git+https://github.com/brig-id/crypto?rev=e6f92d72cd9264ef80d47c01524888c5bfa4be66#e6f92d72cd9264ef80d47c01524888c5bfa4be66"
 dependencies = [
  "aes-gcm",
  "ed25519-dalek",
@@ -408,7 +427,7 @@ dependencies = [
 [[package]]
 name = "brigid-did"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?branch=dev#e0d76dc85844f3e8071b363202ea6b8e1160a0be"
+source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
 dependencies = [
  "bs58",
  "reqwest",
@@ -421,10 +440,10 @@ dependencies = [
 [[package]]
 name = "brigid-identity"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?branch=dev#e0d76dc85844f3e8071b363202ea6b8e1160a0be"
+source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
 dependencies = [
  "base64ct",
- "brigid-crypto",
+ "brigid-crypto 0.0.1 (git+https://github.com/brig-id/crypto?rev=e6f92d72cd9264ef80d47c01524888c5bfa4be66)",
  "serde",
  "sha3 0.10.9",
  "thiserror 2.0.18",
@@ -433,7 +452,7 @@ dependencies = [
 [[package]]
 name = "brigid-oidc"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?branch=dev#e0d76dc85844f3e8071b363202ea6b8e1160a0be"
+source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
 dependencies = [
  "base64ct",
  "brigid-identity",
@@ -451,9 +470,9 @@ dependencies = [
 [[package]]
 name = "brigid-store"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?branch=dev#e0d76dc85844f3e8071b363202ea6b8e1160a0be"
+source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
 dependencies = [
- "brigid-crypto",
+ "brigid-crypto 0.0.1 (git+https://github.com/brig-id/crypto?rev=e6f92d72cd9264ef80d47c01524888c5bfa4be66)",
  "hex",
  "sqlx",
  "thiserror 2.0.18",
@@ -466,9 +485,9 @@ dependencies = [
 [[package]]
 name = "brigid-webauthn"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?branch=dev#e0d76dc85844f3e8071b363202ea6b8e1160a0be"
+source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
 dependencies = [
- "brigid-crypto",
+ "brigid-crypto 0.0.1 (git+https://github.com/brig-id/crypto?rev=e6f92d72cd9264ef80d47c01524888c5bfa4be66)",
  "brigid-identity",
  "brigid-store",
  "serde",
@@ -1673,7 +1692,7 @@ version = "0.1.0"
 dependencies = [
  "axum-server",
  "brigid-api",
- "brigid-crypto",
+ "brigid-crypto 0.0.1 (git+https://github.com/brig-id/crypto?rev=65cb9a3982d901db9ebb2c234ff230ee1bb621f9)",
  "brigid-identity",
  "brigid-oidc",
  "brigid-store",
