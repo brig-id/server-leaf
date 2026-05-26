@@ -83,14 +83,21 @@ async fn main() {
         .expect("failed to open or migrate database");
 
     // -- Application state --------------------------------------------------
-    let scheme = if cfg.server.tls_cert.is_some() {
-        "https"
-    } else {
-        "http"
+    let base_url: Url = match cfg.server.public_url {
+        Some(ref u) => u
+            .parse()
+            .expect("invalid `server.public_url` in configuration"),
+        None => {
+            let scheme = if cfg.server.tls_cert.is_some() {
+                "https"
+            } else {
+                "http"
+            };
+            format!("{}://{}:{}", scheme, cfg.server.domain, cfg.server.port)
+                .parse()
+                .expect("invalid domain/port in configuration")
+        }
     };
-    let base_url: Url = format!("{}://{}:{}", scheme, cfg.server.domain, cfg.server.port)
-        .parse()
-        .expect("invalid domain/port in configuration");
 
     let webauthn = WebauthnService::new(cfg.server.domain.as_str(), &base_url)
         .expect("failed to build WebAuthn service (check `domain` in config)");
@@ -99,7 +106,10 @@ async fn main() {
         .security
         .cors_origins
         .iter()
-        .filter_map(|s| s.parse::<Url>().ok())
+        .map(|s| {
+            s.parse::<Url>()
+                .unwrap_or_else(|e| panic!("invalid CORS origin '{s}' in configuration: {e}"))
+        })
         .collect();
 
     let state = Arc::new(AppState::new(
