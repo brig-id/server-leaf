@@ -1,0 +1,78 @@
+# brig·id leaf — production deployment
+#
+# Uses Docker secrets for BRIGID_MASTER_KEY (never a plaintext env var).
+# Caddy handles TLS termination automatically (Let's Encrypt).
+#
+# Usage:
+#   docker secret create brigid_master_key <(echo -n "$BRIGID_MASTER_KEY")
+#   docker compose -f deploy/compose.yaml up -d
+
+secrets:
+  brigid_master_key:
+    external: true
+
+volumes:
+  leaf-data:
+    driver: local
+
+services:
+  # --------------------------------------------------------------------------
+  # brig·id leaf application server
+  # --------------------------------------------------------------------------
+  leaf:
+    image: brigid/leaf:latest
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - leaf-data:/data
+    secrets:
+      - brigid_master_key
+    environment:
+      RUST_LOG: "brigid_api=info,leaf=info,warn"
+      BRIGID_MASTER_KEY_FILE: /run/secrets/brigid_master_key
+      LEAF_SERVER__DOMAIN: "${BRIGID_DOMAIN:?BRIGID_DOMAIN must be set}"
+      LEAF_SERVER__HOST: "0.0.0.0"
+      LEAF_SERVER__PORT: "8080"
+      LEAF_DATABASE__PATH: "/data/brigid.db"
+      LEAF_SECURITY__CORS_ORIGINS: '["https://${BRIGID_DOMAIN}"]'
+    networks:
+      - internal
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # --------------------------------------------------------------------------
+  # Caddy reverse proxy — automatic TLS via Let's Encrypt
+  # --------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - internal
+    depends_on:
+      leaf:
+        condition: service_healthy
+
+volumes:
+  leaf-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  internal:
+    driver: bridge
