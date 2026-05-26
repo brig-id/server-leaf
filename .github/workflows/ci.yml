@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: brig-id/.github/.github/workflows/ci-rust.yml@main
+    with:
+      working-directory: .
+
+  security:
+    uses: brig-id/.github/.github/workflows/security-audit.yml@main
+    with:
+      working-directory: .
+
+  coverage:
+    uses: brig-id/.github/.github/workflows/coverage.yml@main
+    with:
+      working-directory: .
+      codecov-flags: server-leaf
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

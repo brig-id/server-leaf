@@ -1,0 +1,21 @@
+# Build artifacts
+target/
+/cargo-target/
+
+# Version control
+.git/
+.gitignore
+.history/
+
+# Development files
+*.toml~
+*.bak
+*.swp
+*.orig
+.DS_Store
+
+# Secrets (should never be in the image context anyway)
+leaf.toml
+*.pem
+*.key
+*.crt

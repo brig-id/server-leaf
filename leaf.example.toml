@@ -1,0 +1,30 @@
+# brig·id leaf — example configuration
+#
+# Copy this file to `leaf.toml` and adjust for your deployment.
+# BRIGID_MASTER_KEY must always come from the environment — never put it here.
+
+[server]
+# Network interface to bind (default: all interfaces).
+host = "0.0.0.0"
+# TCP port (default: 8080). Use 443 for direct HTTPS without a reverse proxy.
+port = 8080
+# Public domain name — must match your TLS certificate CN / SAN.
+# This value is used as:
+#   - the WebAuthn Relying Party ID (passkey scope)
+#   - the OIDC issuer URL prefix
+domain = "example.com"
+
+# TLS certificate and private key (PEM format).
+# Omit both to run plain HTTP (recommended behind Caddy / nginx).
+# tls_cert = "/certs/cert.pem"
+# tls_key  = "/certs/key.pem"
+
+[database]
+# Path to the SQLite database file. The directory must be writable.
+path = "/data/brigid.db"
+
+[security]
+# ID token lifetime in seconds (default: 3600 = 1 hour).
+session_ttl_seconds = 3600
+# Allowed CORS origins. Leave empty to disable CORS headers.
+cors_origins = ["https://example.com"]

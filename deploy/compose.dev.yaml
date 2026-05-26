@@ -1,0 +1,36 @@
+# brig·id leaf — development deployment (plain HTTP, no TLS, no Docker secrets)
+#
+# For local development only. Do NOT use in production.
+#
+# Usage:
+#   BRIGID_MASTER_KEY=<64-hex-chars> docker compose -f deploy/compose.dev.yaml up
+
+volumes:
+  leaf-data-dev:
+
+services:
+  leaf:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - leaf-data-dev:/data
+    environment:
+      RUST_LOG: "brigid_api=debug,leaf=debug,tower_http=debug,warn"
+      BRIGID_MASTER_KEY: "${BRIGID_MASTER_KEY:?BRIGID_MASTER_KEY must be set}"
+      LEAF_SERVER__DOMAIN: "${BRIGID_DOMAIN:-localhost}"
+      LEAF_SERVER__HOST: "0.0.0.0"
+      LEAF_SERVER__PORT: "8080"
+      LEAF_DATABASE__PATH: "/data/brigid.db"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

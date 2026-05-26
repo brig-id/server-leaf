@@ -1,0 +1,39 @@
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "Unicode-DFS-2016",
+  "Unicode-3.0",
+  "ISC",
+  "BSD-3-Clause",
+  "CC0-1.0",
+  "Zlib",
+  "CDLA-Permissive-2.0",
+  "MPL-2.0",
+  "BSL-1.0",
+]
+confidence-threshold = 0.8
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+  # rustls-pemfile marked unmaintained; pulled in transitively by axum-server 0.7.
+  # It is a thin wrapper around rustls-pki-types PEM code — no security impact.
+  # Will resolve when axum-server is updated to use rustls-pki-types directly.
+  { id = "RUSTSEC-2025-0134", reason = "transitive via axum-server 0.7; thin wrapper, no security impact; no fix available upstream" },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "warn"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = [
+  "https://github.com/brig-id/core",
+  "https://github.com/brig-id/crypto",
+]
