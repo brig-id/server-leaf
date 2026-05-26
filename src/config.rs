@@ -38,6 +38,14 @@ pub struct ServerConfig {
     /// Public domain name — used as the WebAuthn RP ID and OIDC issuer.
     pub domain: String,
 
+    /// Override for the public base URL (e.g. `"https://example.com"`).
+    ///
+    /// When set, this is used as the OIDC issuer and WebAuthn origin instead
+    /// of the value inferred from `domain` and `port`. Use this when the leaf
+    /// binary runs behind a reverse proxy that handles TLS and serves on a
+    /// different public port (e.g. Caddy on 443 → leaf on 8080).
+    pub public_url: Option<String>,
+
     /// Path to the TLS certificate PEM file. Required for HTTPS.
     pub tls_cert: Option<PathBuf>,
 

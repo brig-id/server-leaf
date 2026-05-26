@@ -28,9 +28,10 @@ check() {
   local url="$2"
   local expected_status="${3:-200}"
   local jq_filter="${4:-.}"
+  local method="${5:-GET}"
 
   local response
-  response=$(curl -fsS -w '\n%{http_code}' "$url" 2>&1) || {
+  response=$(curl -sS -w '\n%{http_code}' -X "$method" "$url" 2>&1) || {
     echo -e "${RED}FAIL${RESET} ${label}: curl failed"
     FAIL=$((FAIL + 1))
     return
@@ -78,13 +79,13 @@ check "GET /.well-known/did.json — has id field" \
   "${BASE_URL}/.well-known/did.json" "200" \
   '.id | startswith("did:web:")'
 
-# Auth endpoints — missing body should return 400
-check "POST /auth/register/begin without body → 400/415/422" \
-  "${BASE_URL}/auth/register/begin" "400"
+# Auth endpoints — missing body should return 415 (Unsupported Media Type) or 422
+check "POST /auth/register/begin without body → 415/422" \
+  "${BASE_URL}/auth/register/begin" "415" "." "POST"
 
 # Logout without token → 401
 check "POST /auth/logout without Bearer → 401" \
-  "${BASE_URL}/auth/logout" "401"
+  "${BASE_URL}/auth/logout" "401" "." "POST"
 
 # Security headers present
 HEADERS=$(curl -fsS -I "${BASE_URL}/health" 2>&1)
