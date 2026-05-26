@@ -1,12 +1,13 @@
 # brig·id leaf — Caddy reverse proxy configuration
 #
-# Replace `example.com` with your actual domain (or set via BRIGID_DOMAIN env var).
-# Caddy obtains a Let's Encrypt TLS certificate automatically.
+# Set the BRIGID_DOMAIN environment variable to your actual domain.
+# Caddy reads it at startup and obtains a Let's Encrypt TLS certificate
+# automatically.
 #
 # Production:
 #   docker compose -f deploy/compose.yaml up -d
 
-{example.com} {
+{$BRIGID_DOMAIN} {
     reverse_proxy leaf:8080
 
     # Security headers (belt-and-suspenders alongside leaf's own headers).

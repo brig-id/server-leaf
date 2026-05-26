@@ -58,7 +58,7 @@ async fn main() {
     // -- MASTER_KEY ----------------------------------------------------------
     // Must come from the environment — never from the config file.
     let master = MasterKey::from_env()
-        .expect("BRIGID_MASTER_KEY must be set to a 64-character hex string (32 bytes)");
+        .expect("BRIGID_MASTER_KEY (or BRIGID_MASTER_KEY_FILE) must be set to a 64-character hex string (32 bytes)");
 
     // Derive VSID salt before master is moved into the store.
     let vsid_salt = derive_vsid_salt(&master);
@@ -88,7 +88,7 @@ async fn main() {
             .parse()
             .expect("invalid `server.public_url` in configuration"),
         None => {
-            let scheme = if cfg.server.tls_cert.is_some() {
+            let scheme = if cfg.server.tls_cert.is_some() && cfg.server.tls_key.is_some() {
                 "https"
             } else {
                 "http"
@@ -118,9 +118,14 @@ async fn main() {
     let router = build_router(state, &cors_origins);
 
     // -- Server --------------------------------------------------------------
-    let addr: SocketAddr = format!("{}:{}", cfg.server.host, cfg.server.port)
+    // Parse the host as an IpAddr first so that IPv6 addresses are bracketed
+    // correctly in the resulting SocketAddr (e.g. `::1` → `[::1]:8080`).
+    let ip: std::net::IpAddr = cfg
+        .server
+        .host
         .parse()
-        .expect("invalid host/port in configuration");
+        .expect("invalid `server.host` in configuration");
+    let addr = SocketAddr::new(ip, cfg.server.port);
 
     let handle = axum_server::Handle::new();
 

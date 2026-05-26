@@ -29,8 +29,7 @@ services:
     ports:
       - "8080:8080"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
+      # The distroless image has no shell or curl.
+      # Disable here; the dev compose exposes the port directly for local
+      # testing. A native --health-check flag will be added in a future phase.
+      disable: true

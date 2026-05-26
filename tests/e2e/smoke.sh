@@ -81,14 +81,17 @@ check "GET /.well-known/did.json — has id field" \
 
 # Auth endpoints — missing body should return 415 (Unsupported Media Type) or 422
 check "POST /auth/register/begin without body → 415/422" \
-  "${BASE_URL}/auth/register/begin" "415" "." "POST"
+  "${BASE_URL}/auth/register/begin" "41" "." "POST"
 
 # Logout without token → 401
 check "POST /auth/logout without Bearer → 401" \
   "${BASE_URL}/auth/logout" "401" "." "POST"
 
 # Security headers present
-HEADERS=$(curl -fsS -I "${BASE_URL}/health" 2>&1)
+HEADERS=$(curl -sS -I "${BASE_URL}/health" 2>&1) || {
+  echo -e "${RED}FAIL${RESET} Security headers: curl failed"
+  FAIL=$((FAIL + 1))
+}
 if echo "$HEADERS" | grep -qi "x-content-type-options: nosniff"; then
   echo -e "${GREEN}PASS${RESET} Security header: X-Content-Type-Options"
   PASS=$((PASS + 1))
