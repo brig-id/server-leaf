@@ -50,8 +50,9 @@ services:
       - "8080"
     healthcheck:
       # The distroless image has no shell or curl.
-      # Disable here and rely on Caddy's upstream health-check instead.
-      # A native --health-check flag can be added to the leaf binary in a
+      # Caddy does not configure active health checks on leaf (no health_uri in
+      # Caddyfile). The healthcheck below lets Docker Compose and orchestrators
+      # track liveness directly via the leaf /health endpoint.
       # future phase to enable a proper in-process check.
       disable: true
 

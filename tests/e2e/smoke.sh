@@ -93,6 +93,14 @@ check_one_of() {
     return
   fi
 
+  if [ "$jq_filter" != "." ]; then
+    if ! echo "$body" | jq -e "$jq_filter" > /dev/null 2>&1; then
+      echo -e "${RED}FAIL${RESET} ${label}: JSON assertion '${jq_filter}' failed"
+      FAIL=$((FAIL + 1))
+      return
+    fi
+  fi
+
   echo -e "${GREEN}PASS${RESET} ${label} (HTTP ${http_status})"
   PASS=$((PASS + 1))
 }

@@ -16,7 +16,7 @@ COPY Cargo.toml Cargo.lock ./
 
 # Build a dummy binary to cache all dependencies.
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && \
-    cargo build --release && \
+    cargo build --release --locked && \
     rm -rf src
 
 # Copy real source files.
@@ -24,7 +24,7 @@ COPY src/ ./src/
 
 # Force recompile of the application code (preserve cached deps).
 RUN touch src/main.rs && \
-    cargo build --release
+    cargo build --release --locked
 
 # ---------------------------------------------------------------------------
 # Stage 2 — Runtime (distroless, minimal attack surface)
