@@ -364,7 +364,7 @@ dependencies = [
 [[package]]
 name = "brigid-api"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
+source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
 dependencies = [
  "axum",
  "brigid-did",
@@ -406,28 +406,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "brigid-crypto"
-version = "0.0.1"
-source = "git+https://github.com/brig-id/crypto?rev=e6f92d72cd9264ef80d47c01524888c5bfa4be66#e6f92d72cd9264ef80d47c01524888c5bfa4be66"
-dependencies = [
- "aes-gcm",
- "ed25519-dalek",
- "hex",
- "hkdf",
- "ml-dsa",
- "ml-kem",
- "rand_core 0.6.4",
- "secrecy",
- "sha3 0.10.9",
- "thiserror 2.0.18",
- "x25519-dalek",
- "zeroize",
-]
-
-[[package]]
 name = "brigid-did"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
+source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
 dependencies = [
  "bs58",
  "reqwest",
@@ -440,10 +421,11 @@ dependencies = [
 [[package]]
 name = "brigid-identity"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
+source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
 dependencies = [
  "base64ct",
- "brigid-crypto 0.0.1 (git+https://github.com/brig-id/crypto?rev=e6f92d72cd9264ef80d47c01524888c5bfa4be66)",
+ "brigid-crypto",
+ "hkdf",
  "serde",
  "sha3 0.10.9",
  "thiserror 2.0.18",
@@ -452,7 +434,7 @@ dependencies = [
 [[package]]
 name = "brigid-oidc"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
+source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
 dependencies = [
  "base64ct",
  "brigid-identity",
@@ -470,9 +452,9 @@ dependencies = [
 [[package]]
 name = "brigid-store"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
+source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
 dependencies = [
- "brigid-crypto 0.0.1 (git+https://github.com/brig-id/crypto?rev=e6f92d72cd9264ef80d47c01524888c5bfa4be66)",
+ "brigid-crypto",
  "hex",
  "sqlx",
  "thiserror 2.0.18",
@@ -485,9 +467,9 @@ dependencies = [
 [[package]]
 name = "brigid-webauthn"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4#964a7384c1d8d37bd1dfa38ce59a54bc3eef07b4"
+source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
 dependencies = [
- "brigid-crypto 0.0.1 (git+https://github.com/brig-id/crypto?rev=e6f92d72cd9264ef80d47c01524888c5bfa4be66)",
+ "brigid-crypto",
  "brigid-identity",
  "brigid-store",
  "serde",
@@ -951,6 +933,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastrand"
+version = "2.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
+
+[[package]]
 name = "fiat-crypto"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -963,8 +951,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8cb01cd46b0cf372153850f4c6c272d9cbea2da513e07538405148f95bd789f3"
 dependencies = [
  "atomic",
+ "parking_lot",
  "pear",
  "serde",
+ "tempfile",
  "toml",
  "uncased",
  "version_check",
@@ -1692,7 +1682,7 @@ version = "0.1.0"
 dependencies = [
  "axum-server",
  "brigid-api",
- "brigid-crypto 0.0.1 (git+https://github.com/brig-id/crypto?rev=65cb9a3982d901db9ebb2c234ff230ee1bb621f9)",
+ "brigid-crypto",
  "brigid-identity",
  "brigid-oidc",
  "brigid-store",
@@ -1747,6 +1737,12 @@ dependencies = [
  "pkg-config",
  "vcpkg",
 ]
+
+[[package]]
+name = "linux-raw-sys"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
 name = "litemap"
@@ -2553,6 +2549,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustix"
+version = "1.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6fe4565b9518b83ef4f91bb47ce29620ca828bd32cb7e408f0062e9930ba190"
+dependencies = [
+ "bitflags",
+ "errno",
+ "libc",
+ "linux-raw-sys",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "rustls"
 version = "0.23.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3143,6 +3152,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "tempfile"
+version = "3.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
+dependencies = [
+ "fastrand",
+ "getrandom 0.3.4",
+ "once_cell",
+ "rustix",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
