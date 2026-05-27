@@ -171,8 +171,28 @@ mod tests {
     }
 
     #[test]
-    fn cors_origins_default_empty() {
-        let cfg = load_value(minimal());
-        assert!(cfg.security.cors_origins.is_empty());
+    fn env_vars_override_toml_defaults() {
+        // Validates that environment variables in the LEAF_SECTION__KEY format
+        // correctly override TOML defaults via figment's Env provider.
+        // Jail serialises env-var access to prevent interference with parallel tests.
+        figment::Jail::expect_with(|jail| {
+            jail.set_env("LEAF_SERVER__HOST", "10.0.0.1");
+            jail.set_env("LEAF_SERVER__PORT", "9999");
+            jail.set_env("LEAF_SERVER__DOMAIN", "env.example.com");
+            jail.set_env("LEAF_DATABASE__PATH", "/tmp/env-test.db");
+            jail.set_env("LEAF_SECURITY__SESSION_TTL_SECONDS", "7200");
+
+            let cfg: Config = Figment::new()
+                .merge(Serialized::defaults(minimal()))
+                .merge(figment::providers::Env::prefixed("LEAF_").split("__"))
+                .extract()?;
+
+            assert_eq!(cfg.server.host, "10.0.0.1");
+            assert_eq!(cfg.server.port, 9999);
+            assert_eq!(cfg.server.domain, "env.example.com");
+            assert_eq!(cfg.database.path, "/tmp/env-test.db");
+            assert_eq!(cfg.security.session_ttl_seconds, 7200);
+            Ok(())
+        });
     }
 }

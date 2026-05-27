@@ -12,24 +12,24 @@ path = "src/main.rs"
 
 [dependencies]
 # brig·id core crates (git dep pointing to the core repository)
-brigid-api      = { git = "https://github.com/brig-id/core", rev = "c71bba955af702d83088fe4fada4cdc3d61c7ed3", package = "brigid-api" }
-brigid-store    = { git = "https://github.com/brig-id/core", rev = "c71bba955af702d83088fe4fada4cdc3d61c7ed3", package = "brigid-store" }
+brigid-api = { git = "https://github.com/brig-id/core", rev = "c71bba955af702d83088fe4fada4cdc3d61c7ed3", package = "brigid-api" }
+brigid-store = { git = "https://github.com/brig-id/core", rev = "c71bba955af702d83088fe4fada4cdc3d61c7ed3", package = "brigid-store" }
 brigid-identity = { git = "https://github.com/brig-id/core", rev = "c71bba955af702d83088fe4fada4cdc3d61c7ed3", package = "brigid-identity" }
 brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "c71bba955af702d83088fe4fada4cdc3d61c7ed3", package = "brigid-webauthn" }
-brigid-oidc     = { git = "https://github.com/brig-id/core", rev = "c71bba955af702d83088fe4fada4cdc3d61c7ed3", package = "brigid-oidc" }
+brigid-oidc = { git = "https://github.com/brig-id/core", rev = "c71bba955af702d83088fe4fada4cdc3d61c7ed3", package = "brigid-oidc" }
 
 # Cryptographic primitives
 brigid-crypto = { git = "https://github.com/brig-id/crypto", rev = "65cb9a3982d901db9ebb2c234ff230ee1bb621f9" }
 
 # CLI + configuration
-clap    = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
 # Logging / tracing
-tracing            = "0.1"
+tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 
 # HTTP / TLS
@@ -37,16 +37,17 @@ axum-server = { version = "0.7", features = ["tls-rustls"] }
 
 # Misc
 serde = { version = "1", features = ["derive"] }
-url   = "2"
+url = "2"
 
 [dev-dependencies]
+figment = { version = "0.10", features = ["test"] }
 serde_json = "1"
 
 [profile.release]
-panic         = "abort"
-lto           = "thin"
+panic = "abort"
+lto = "thin"
 codegen-units = 1
-strip         = "debuginfo"
+strip = "debuginfo"
 
 [profile.dev]
 panic = "abort"

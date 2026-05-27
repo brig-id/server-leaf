@@ -59,6 +59,44 @@ check() {
   PASS=$((PASS + 1))
 }
 
+# check_one_of: like check() but accepts a space-separated list of valid HTTP
+# status codes (e.g. "415 422" when either status is acceptable).
+check_one_of() {
+  local label="$1"
+  local url="$2"
+  local allowed_statuses="$3"
+  local jq_filter="${4:-.}"
+  local method="${5:-GET}"
+
+  local response
+  response=$(curl -sS -w '\n%{http_code}' -X "$method" "$url" 2>&1) || {
+    echo -e "${RED}FAIL${RESET} ${label}: curl failed"
+    FAIL=$((FAIL + 1))
+    return
+  }
+
+  local body http_status
+  body=$(echo "$response" | head -n -1)
+  http_status=$(echo "$response" | tail -n 1)
+
+  local matched=false
+  for s in $allowed_statuses; do
+    if [ "$http_status" = "$s" ]; then
+      matched=true
+      break
+    fi
+  done
+
+  if ! $matched; then
+    echo -e "${RED}FAIL${RESET} ${label}: expected one of [${allowed_statuses}], got ${http_status}"
+    FAIL=$((FAIL + 1))
+    return
+  fi
+
+  echo -e "${GREEN}PASS${RESET} ${label} (HTTP ${http_status})"
+  PASS=$((PASS + 1))
+}
+
 echo "Running smoke tests against ${BASE_URL}"
 echo "---"
 
@@ -80,8 +118,8 @@ check "GET /.well-known/did.json — has id field" \
   '.id | startswith("did:web:")'
 
 # Auth endpoints — missing body should return 415 (Unsupported Media Type) or 422
-check "POST /auth/register/begin without body → 415/422" \
-  "${BASE_URL}/auth/register/begin" "41" "." "POST"
+check_one_of "POST /auth/register/begin without body → 415/422" \
+  "${BASE_URL}/auth/register/begin" "415 422" "." "POST"
 
 # Logout without token → 401
 check "POST /auth/logout without Bearer → 401" \

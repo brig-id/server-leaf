@@ -5,7 +5,8 @@ FROM rust:1.85-slim AS builder
 
 WORKDIR /build
 
-# Install C build tools required by libsqlite3-sys (bundled SQLite).
+# Install pkg-config (required by the bundled libsqlite3-sys build to locate
+# compile-time dependencies during the Rust build stage).
 RUN apt-get update && \
     apt-get install -y --no-install-recommends pkg-config && \
     rm -rf /var/lib/apt/lists/*
