@@ -39,7 +39,7 @@ check() {
   local method="${5:-GET}"
 
   local response
-  response=$(curl -sS -w '\n%{http_code}' -X "$method" "$url" 2>&1) || {
+  response=$(curl -sS --connect-timeout 5 --max-time 15 -w '\n%{http_code}' -X "$method" "$url" 2>&1) || {
     echo -e "${RED}FAIL${RESET} ${label}: curl failed"
     FAIL=$((FAIL + 1))
     return
@@ -77,7 +77,7 @@ check_one_of() {
   local method="${5:-GET}"
 
   local response
-  response=$(curl -sS -w '\n%{http_code}' -X "$method" "$url" 2>&1) || {
+  response=$(curl -sS --connect-timeout 5 --max-time 15 -w '\n%{http_code}' -X "$method" "$url" 2>&1) || {
     echo -e "${RED}FAIL${RESET} ${label}: curl failed"
     FAIL=$((FAIL + 1))
     return
@@ -142,7 +142,7 @@ check "POST /auth/logout without Bearer → 401" \
   "${BASE_URL}/auth/logout" "401" "." "POST"
 
 # Security headers present
-HEADERS=$(curl -sS -I "${BASE_URL}/health" 2>&1) || {
+HEADERS=$(curl -sS --connect-timeout 5 --max-time 15 -I "${BASE_URL}/health" 2>&1) || {
   echo -e "${RED}FAIL${RESET} Security headers: curl failed"
   FAIL=$((FAIL + 1))
   HEADERS=""

@@ -1,6 +1,12 @@
 # brig·id leaf — example configuration
 #
-# Copy this file to `leaf.toml` and adjust for your deployment.
+# Copy this file to (for example) `leaf.toml` and adjust for your deployment,
+# then pass it explicitly on the command line: `leaf --config ./leaf.toml`.
+# The binary does NOT auto-discover a `leaf.toml` in the current directory —
+# without `--config`, configuration is read entirely from `LEAF_*` environment
+# variables (the recommended path for container deployments, where TOML files
+# complicate secret management).
+#
 # BRIGID_MASTER_KEY must always come from the environment — never put it here.
 
 [server]
