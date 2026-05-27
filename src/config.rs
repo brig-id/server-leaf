@@ -26,7 +26,14 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub server: ServerConfig,
+    // `database` and `security` are optional in the source: the module-level
+    // docs promise an env-only deployment path, which only works if these
+    // tables can be entirely absent from the TOML / `LEAF_*` environment.
+    // Their fields all carry per-field defaults, and the sub-structs impl
+    // `Default`, so figment can synthesise them from nothing.
+    #[serde(default)]
     pub database: DatabaseConfig,
+    #[serde(default)]
     pub security: SecurityConfig,
 }
 
@@ -68,6 +75,12 @@ pub struct DatabaseConfig {
     pub path: String,
 }
 
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self { path: default_db_path() }
+    }
+}
+
 /// Security settings.
 #[derive(Debug, Deserialize)]
 pub struct SecurityConfig {
@@ -78,6 +91,15 @@ pub struct SecurityConfig {
     /// Allowed CORS origins (e.g. `["https://example.com"]`).
     #[serde(default)]
     pub cors_origins: Vec<String>,
+}
+
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            session_ttl_seconds: default_session_ttl(),
+            cors_origins: Vec::new(),
+        }
+    }
 }
 
 fn default_host() -> String {
