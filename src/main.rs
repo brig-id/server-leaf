@@ -153,7 +153,7 @@ async fn main() {
                 .expect("failed to load TLS certificate/key — check tls_cert/tls_key paths");
             axum_server::bind_rustls(addr, tls_config)
                 .handle(handle)
-                .serve(router.into_make_service())
+                .serve(router.into_make_service_with_connect_info::<SocketAddr>())
                 .await
                 .expect("TLS server error");
         }
@@ -167,7 +167,7 @@ async fn main() {
             );
             axum_server::bind(addr)
                 .handle(handle)
-                .serve(router.into_make_service())
+                .serve(router.into_make_service_with_connect_info::<SocketAddr>())
                 .await
                 .expect("HTTP server error");
         }
