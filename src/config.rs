@@ -1,9 +1,15 @@
 //! Configuration loading for `leaf`.
 //!
-//! Configuration is merged in this order (later entries win):
-//! 1. `leaf.toml` (path overridable via `--config`)
+//! Configuration is assembled from up to two sources, in this order
+//! (later entries override earlier ones):
+//! 1. A TOML file, **only when** an explicit `--config <path>` is supplied
+//!    on the command line (`load(Some(path))`). There is **no** auto-discovery
+//!    of `leaf.toml` from the working directory.
 //! 2. Environment variables with the `LEAF_` prefix, using `__` as the
 //!    nesting separator (e.g. `LEAF_SERVER__PORT=9000` → `server.port`).
+//!
+//! When `--config` is omitted, the configuration comes entirely from
+//! `LEAF_*` environment variables (plus the `#[serde(default)]` defaults).
 //!
 //! `BRIGID_MASTER_KEY` is **always** read separately from the environment —
 //! it must never appear in `leaf.toml`.
@@ -206,7 +212,8 @@ mod tests {
     #[allow(clippy::result_large_err)] // figment::Jail closure must return figment::Error.
     fn cors_origins_can_be_set_via_env() {
         // `cors_origins` is a `Vec<String>`. Figment's Env provider with
-        // `split("__")` accepts a comma-separated value for sequences; the
+        // `split("__")` accepts a TOML-array-literal-encoded string for
+        // sequence fields (e.g. `["https://a","https://b"]`); the
         // `deploy/compose.yaml` template relies on this encoding to push the
         // production origin list through `LEAF_SECURITY__CORS_ORIGINS`.
         figment::Jail::expect_with(|jail| {
