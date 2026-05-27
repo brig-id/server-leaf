@@ -90,13 +90,18 @@ fn default_session_ttl() -> u64 {
     3600
 }
 
-/// Load the merged configuration from `config_path` + environment variables.
+/// Load the merged configuration.
+///
+/// `config_path` is optional — when `None`, configuration is read entirely
+/// from `LEAF_*` environment variables (intended for container deployments
+/// where TOML files complicate secret management).
 #[allow(clippy::result_large_err)] // figment::Error is inherently large; not reducible.
-pub fn load(config_path: &std::path::Path) -> Result<Config, figment::Error> {
-    Figment::new()
-        .merge(Toml::file(config_path))
-        .merge(Env::prefixed("LEAF_").split("__"))
-        .extract()
+pub fn load(config_path: Option<&std::path::Path>) -> Result<Config, figment::Error> {
+    let mut figment = Figment::new();
+    if let Some(path) = config_path {
+        figment = figment.merge(Toml::file(path));
+    }
+    figment.merge(Env::prefixed("LEAF_").split("__")).extract()
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +176,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::result_large_err)] // figment::Jail closure must return figment::Error.
     fn env_vars_override_toml_defaults() {
         // Validates that environment variables in the LEAF_SECTION__KEY format
         // correctly override TOML defaults via figment's Env provider.

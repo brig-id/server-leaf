@@ -34,8 +34,11 @@ use brigid_webauthn::WebauthnService;
 #[command(name = "leaf", about = "brig·id single-server deployment")]
 struct Cli {
     /// Path to the TOML configuration file.
-    #[arg(long, default_value = "leaf.toml")]
-    config: PathBuf,
+    ///
+    /// Optional — if omitted, configuration is read entirely from `LEAF_*`
+    /// environment variables (the recommended setup for container deployments).
+    #[arg(long)]
+    config: Option<PathBuf>,
 }
 
 // ---------------------------------------------------------------------------
@@ -53,7 +56,7 @@ async fn main() {
         .init();
 
     // -- Configuration -------------------------------------------------------
-    let cfg = config::load(&cli.config).expect("configuration error");
+    let cfg = config::load(cli.config.as_deref()).expect("configuration error");
 
     // -- MASTER_KEY ----------------------------------------------------------
     // Must come from the environment — never from the config file.

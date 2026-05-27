@@ -10,6 +10,14 @@
 
 set -euo pipefail
 
+# Required tools.
+for tool in curl jq; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "smoke.sh: missing required tool: $tool" >&2
+    exit 2
+  fi
+done
+
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 PASS=0
 FAIL=0
@@ -137,8 +145,9 @@ check "POST /auth/logout without Bearer → 401" \
 HEADERS=$(curl -sS -I "${BASE_URL}/health" 2>&1) || {
   echo -e "${RED}FAIL${RESET} Security headers: curl failed"
   FAIL=$((FAIL + 1))
+  HEADERS=""
 }
-if echo "$HEADERS" | grep -qi "x-content-type-options: nosniff"; then
+if [ -n "$HEADERS" ] && echo "$HEADERS" | grep -qi "x-content-type-options: nosniff"; then
   echo -e "${GREEN}PASS${RESET} Security header: X-Content-Type-Options"
   PASS=$((PASS + 1))
 else
@@ -146,7 +155,7 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-if echo "$HEADERS" | grep -qi "x-frame-options: deny"; then
+if [ -n "$HEADERS" ] && echo "$HEADERS" | grep -qi "x-frame-options: deny"; then
   echo -e "${GREEN}PASS${RESET} Security header: X-Frame-Options"
   PASS=$((PASS + 1))
 else
