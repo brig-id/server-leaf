@@ -23,6 +23,10 @@ ignore = [
   # It is a thin wrapper around rustls-pki-types PEM code — no security impact.
   # Will resolve when axum-server is updated to use rustls-pki-types directly.
   { id = "RUSTSEC-2025-0134", reason = "transitive via axum-server 0.7; thin wrapper, no security impact; no fix available upstream" },
+  # Marvin Attack in `rsa` (no fixed upgrade available). Pulled in transitively
+  # by `sqlx` for the MySQL backend, which `brigid-store` never enables
+  # — only `sqlx::sqlite` is used. The vulnerable code path is unreachable.
+  { id = "RUSTSEC-2023-0071", reason = "transitive via sqlx-mysql which is not enabled; unreachable code path" },
 ]
 
 [bans]

@@ -1,8 +1,16 @@
 # cargo-audit configuration for brigid/server-leaf
 #
+# RUSTSEC-2023-0071: Marvin Attack in `rsa` (no fixed upgrade available).
+# Pulled in transitively by `sqlx` for the MySQL backend, which `brigid-store`
+# never enables — only `sqlx::sqlite` is used. The vulnerable code path is
+# unreachable at runtime.
+#
 # RUSTSEC-2025-0134: rustls-pemfile marked unmaintained.
 # Transitive dependency via axum-server 0.7. It is a thin wrapper around
 # rustls-pki-types PEM code with no runtime security impact. Will resolve
 # when axum-server upgrades to use rustls-pki-types directly.
 [advisories]
-ignore = ["RUSTSEC-2025-0134"]
+ignore = [
+  "RUSTSEC-2023-0071",
+  "RUSTSEC-2025-0134",
+]
