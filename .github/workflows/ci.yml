@@ -8,17 +8,17 @@ on:
 
 jobs:
   ci:
-    uses: brig-id/.github/.github/workflows/ci-rust.yml@ec3e97c4dcf0396a791873aa56bf690919921c72
+    uses: brig-id/.github/.github/workflows/ci-rust.yml@26e9a0393cb98cdb4f25e4d10f155230fb4db6f5
     with:
       working-directory: .
 
   security:
-    uses: brig-id/.github/.github/workflows/security-audit.yml@ec3e97c4dcf0396a791873aa56bf690919921c72
+    uses: brig-id/.github/.github/workflows/security-audit.yml@26e9a0393cb98cdb4f25e4d10f155230fb4db6f5
     with:
       working-directory: .
 
   coverage:
-    uses: brig-id/.github/.github/workflows/coverage.yml@ec3e97c4dcf0396a791873aa56bf690919921c72
+    uses: brig-id/.github/.github/workflows/coverage.yml@26e9a0393cb98cdb4f25e4d10f155230fb4db6f5
     with:
       working-directory: .
       codecov-flags: server-leaf

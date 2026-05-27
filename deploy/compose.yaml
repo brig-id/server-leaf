@@ -62,6 +62,10 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    environment:
+      # Caddy's `{$BRIGID_DOMAIN}` substitution reads from this container's
+      # environment — the variable must be propagated explicitly from the host.
+      BRIGID_DOMAIN: "${BRIGID_DOMAIN:?BRIGID_DOMAIN must be set}"
     ports:
       - "80:80"
       - "443:443"
