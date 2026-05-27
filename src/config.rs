@@ -201,4 +201,32 @@ mod tests {
             Ok(())
         });
     }
+
+    #[test]
+    #[allow(clippy::result_large_err)] // figment::Jail closure must return figment::Error.
+    fn cors_origins_can_be_set_via_env() {
+        // `cors_origins` is a `Vec<String>`. Figment's Env provider with
+        // `split("__")` accepts a comma-separated value for sequences; the
+        // `deploy/compose.yaml` template relies on this encoding to push the
+        // production origin list through `LEAF_SECURITY__CORS_ORIGINS`.
+        figment::Jail::expect_with(|jail| {
+            jail.set_env(
+                "LEAF_SECURITY__CORS_ORIGINS",
+                "[\"https://a.example\",\"https://b.example\"]",
+            );
+            let cfg: Config = Figment::new()
+                .merge(Serialized::defaults(minimal()))
+                .merge(figment::providers::Env::prefixed("LEAF_").split("__"))
+                .extract()?;
+
+            assert_eq!(
+                cfg.security.cors_origins,
+                vec![
+                    "https://a.example".to_string(),
+                    "https://b.example".to_string(),
+                ]
+            );
+            Ok(())
+        });
+    }
 }
