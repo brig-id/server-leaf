@@ -49,11 +49,20 @@ services:
     expose:
       - "8080"
     healthcheck:
-      # The distroless image has no shell or curl.
-      # Caddy does not configure active health checks on leaf (no health_uri in
-      # Caddyfile). The healthcheck below lets Docker Compose and orchestrators
-      # track liveness directly via the leaf /health endpoint.
-      # future phase to enable a proper in-process check.
+      # Healthcheck is intentionally disabled.
+      #
+      # The leaf container runs on a distroless image with no shell, no
+      # curl/wget, and no busybox — a Docker `HEALTHCHECK` CMD has nothing
+      # to invoke. Embedding an in-process probe binary (e.g. grpc_health_probe
+      # or a tiny Rust shim) is tracked as a future phase.
+      #
+      # Until then, liveness is observed externally:
+      #   • Caddy (this compose file) reverse-proxies `/` to leaf; a failing
+      #     leaf surfaces immediately to clients as 502/504.
+      #   • Operators running this stack behind a load balancer / orchestrator
+      #     (Kubernetes, Nomad, ECS, …) should configure an L7 probe targeting
+      #     `https://${BRIGID_DOMAIN}/health` from the proxy layer, or an L4
+      #     TCP probe on `8080` inside the `internal` network.
       disable: true
 
   # --------------------------------------------------------------------------
