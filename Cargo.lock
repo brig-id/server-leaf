@@ -364,7 +364,7 @@ dependencies = [
 [[package]]
 name = "brigid-api"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
+source = "git+https://github.com/brig-id/core?rev=d5f14df608858f417ab24dfec0beb0e9dd7cf224#d5f14df608858f417ab24dfec0beb0e9dd7cf224"
 dependencies = [
  "axum",
  "brigid-did",
@@ -389,7 +389,7 @@ dependencies = [
 [[package]]
 name = "brigid-crypto"
 version = "0.0.1"
-source = "git+https://github.com/brig-id/crypto?rev=65cb9a3982d901db9ebb2c234ff230ee1bb621f9#65cb9a3982d901db9ebb2c234ff230ee1bb621f9"
+source = "git+https://github.com/brig-id/crypto?rev=52d0983b557b6f294b9f40a9896d95d03e2e4681#52d0983b557b6f294b9f40a9896d95d03e2e4681"
 dependencies = [
  "aes-gcm",
  "ed25519-dalek",
@@ -408,7 +408,7 @@ dependencies = [
 [[package]]
 name = "brigid-did"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
+source = "git+https://github.com/brig-id/core?rev=d5f14df608858f417ab24dfec0beb0e9dd7cf224#d5f14df608858f417ab24dfec0beb0e9dd7cf224"
 dependencies = [
  "bs58",
  "reqwest",
@@ -421,7 +421,7 @@ dependencies = [
 [[package]]
 name = "brigid-identity"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
+source = "git+https://github.com/brig-id/core?rev=d5f14df608858f417ab24dfec0beb0e9dd7cf224#d5f14df608858f417ab24dfec0beb0e9dd7cf224"
 dependencies = [
  "base64ct",
  "brigid-crypto",
@@ -434,7 +434,7 @@ dependencies = [
 [[package]]
 name = "brigid-oidc"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
+source = "git+https://github.com/brig-id/core?rev=d5f14df608858f417ab24dfec0beb0e9dd7cf224#d5f14df608858f417ab24dfec0beb0e9dd7cf224"
 dependencies = [
  "base64ct",
  "brigid-identity",
@@ -452,7 +452,7 @@ dependencies = [
 [[package]]
 name = "brigid-store"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
+source = "git+https://github.com/brig-id/core?rev=d5f14df608858f417ab24dfec0beb0e9dd7cf224#d5f14df608858f417ab24dfec0beb0e9dd7cf224"
 dependencies = [
  "brigid-crypto",
  "hex",
@@ -467,7 +467,7 @@ dependencies = [
 [[package]]
 name = "brigid-webauthn"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=c71bba955af702d83088fe4fada4cdc3d61c7ed3#c71bba955af702d83088fe4fada4cdc3d61c7ed3"
+source = "git+https://github.com/brig-id/core?rev=d5f14df608858f417ab24dfec0beb0e9dd7cf224#d5f14df608858f417ab24dfec0beb0e9dd7cf224"
 dependencies = [
  "brigid-crypto",
  "brigid-identity",
