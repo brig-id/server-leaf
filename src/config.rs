@@ -77,7 +77,9 @@ pub struct DatabaseConfig {
 
 impl Default for DatabaseConfig {
     fn default() -> Self {
-        Self { path: default_db_path() }
+        Self {
+            path: default_db_path(),
+        }
     }
 }
 
