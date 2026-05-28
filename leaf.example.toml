@@ -25,6 +25,15 @@ domain = "example.com"
 # tls_cert = "/certs/cert.pem"
 # tls_key  = "/certs/key.pem"
 
+# Publicly reachable URL of this instance, including scheme. Set this when
+# `leaf` runs behind a TLS-terminating reverse proxy (e.g. Caddy on :443 →
+# leaf on :8080) so OIDC issuer / discovery URLs and WebAuthn origin checks
+# advertise the public endpoint rather than the internal bind address.
+# When omitted, the URL is derived from `host`, `port`, and whether `tls_cert`
+# / `tls_key` are set, which is only correct for direct deployments.
+# Override via env: `LEAF_SERVER__PUBLIC_URL=https://example.com`.
+# public_url = "https://example.com"
+
 [database]
 # Path to the SQLite database file. The directory must be writable.
 path = "/data/brigid.db"
