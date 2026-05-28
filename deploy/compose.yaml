@@ -26,7 +26,13 @@ services:
   # brig·id leaf application server
   # --------------------------------------------------------------------------
   leaf:
-    image: brigid/leaf:latest
+    # Pin to an immutable image digest in production. Floating tags
+    # (`brigid/leaf:latest`) can move under your feet during `docker compose
+    # pull`, silently introducing an upgrade or downgrade. Operators must
+    # replace this with the digest of the leaf image they have qualified for
+    # their environment, e.g.
+    #   brigid/leaf:vX.Y.Z@sha256:<64-hex>
+    image: brigid/leaf:latest # TODO: replace with versioned digest before production rollout
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -43,7 +49,11 @@ services:
       LEAF_SERVER__HOST: "0.0.0.0"
       LEAF_SERVER__PORT: "8080"
       LEAF_DATABASE__PATH: "/data/brigid.db"
-      LEAF_SECURITY__CORS_ORIGINS: '["https://${BRIGID_DOMAIN}"]'
+      # Double-quoted for consistency with the other interpolated values in
+      # this block and to make the `${BRIGID_DOMAIN}` substitution obvious
+      # at a glance. Compose still interpolates inside single quotes, but
+      # mixing quote styles makes review more error-prone.
+      LEAF_SECURITY__CORS_ORIGINS: "[\"https://${BRIGID_DOMAIN}\"]"
     networks:
       - internal
     expose:
@@ -69,7 +79,11 @@ services:
   # Caddy reverse proxy — automatic TLS via Let's Encrypt
   # --------------------------------------------------------------------------
   caddy:
-    image: caddy:2-alpine
+    # Pinned to an immutable digest (caddy:2-alpine at the time of writing)
+    # so production deployments don't roll forward to a new Caddy minor
+    # whenever the upstream tag is republished. Refresh together with the
+    # human-readable tag when upgrading Caddy.
+    image: caddy:2-alpine@sha256:3739ea4f0c877259a693d932693cf8f3408e9a9497c004f031b0e830e93e1546
     restart: unless-stopped
     environment:
       # Caddy's `{$BRIGID_DOMAIN}` substitution reads from this container's

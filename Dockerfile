@@ -1,7 +1,10 @@
 # ---------------------------------------------------------------------------
 # Stage 1 — Build
 # ---------------------------------------------------------------------------
-FROM rust:1.85-slim AS builder
+# Pin the builder image to an immutable digest so rebuilds are deterministic
+# and supply-chain risk from upstream tag movement is bounded. Bump the
+# digest together with the human-readable tag when upgrading Rust.
+FROM rust:1.85-slim@sha256:3490aa77d179a59d67e94239cca96dd84030b564470859200f535b942bdffedf AS builder
 
 WORKDIR /build
 
@@ -41,7 +44,12 @@ RUN touch src/main.rs && \
 # ---------------------------------------------------------------------------
 # Stage 2 — Runtime (distroless, minimal attack surface)
 # ---------------------------------------------------------------------------
-FROM gcr.io/distroless/cc-debian12
+# Pin runtime image to an immutable digest — same rationale as the builder:
+# deterministic rebuilds and bounded supply-chain exposure. The `cc-debian12`
+# variant ships `libssl3`/`libcrypto3` matching the `rust:1.85-slim` builder
+# above (see the libssl comment), so the dynamically-linked binary loads
+# cleanly. Re-pin whenever the runtime base is refreshed.
+FROM gcr.io/distroless/cc-debian12@sha256:5882a8b7d32186f9366147e7d6908c0628db04675476caf7afe3d5794cb6e1b6
 
 # Copy the compiled binary from the build stage.
 COPY --from=builder /build/target/release/leaf /leaf
