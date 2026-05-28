@@ -46,7 +46,10 @@ check() {
   }
 
   local body http_status
-  body=$(echo "$response" | head -n -1)
+  # `sed '$d'` (delete last line) is portable across GNU and BSD/macOS sed,
+  # unlike `head -n -1`, which is a GNU coreutils extension and not supported
+  # by BSD `head` (where it errors with "illegal line count").
+  body=$(echo "$response" | sed '$d')
   http_status=$(echo "$response" | tail -n 1)
 
   if [ "$http_status" != "$expected_status" ]; then
@@ -84,7 +87,8 @@ check_one_of() {
   }
 
   local body http_status
-  body=$(echo "$response" | head -n -1)
+  # See note in check() above: `head -n -1` is not portable; use `sed '$d'`.
+  body=$(echo "$response" | sed '$d')
   http_status=$(echo "$response" | tail -n 1)
 
   local matched=false

@@ -5,10 +5,15 @@ FROM rust:1.85-slim AS builder
 
 WORKDIR /build
 
-# Install pkg-config (required by the bundled libsqlite3-sys build to locate
-# compile-time dependencies during the Rust build stage).
+# Install build-time dependencies:
+#   - pkg-config + libssl-dev: required because the dependency tree pulls in
+#     `openssl-sys` (transitively, via `webauthn-attestation-ca` → `openssl`).
+#     Cargo.lock does not contain `openssl-src`, so the build links against the
+#     system OpenSSL headers/libraries at compile time.
+#   - ca-certificates: needed for `cargo` to fetch git dependencies over HTTPS
+#     during the dependency-resolution step.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends pkg-config && \
+    apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy manifests first so dependency layers are cached separately from source.
