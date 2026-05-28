@@ -78,7 +78,15 @@ async fn main() {
     let db_url = if cfg.database.path == ":memory:" {
         "sqlite::memory:".to_string()
     } else {
-        format!("sqlite://{}?mode=rwc", cfg.database.path)
+        // Use the path-only form `sqlite:{path}` rather than `sqlite://{path}`.
+        // The double-slash form is a URL where everything after `://` is
+        // host+path; for an absolute path like `/data/brigid.db` that yields
+        // `sqlite:///data/brigid.db` (three slashes) which is correct but
+        // easy to miscount as `sqlite:////…` in code review and is fragile
+        // when the path contains characters that would otherwise need URL
+        // encoding. The single-slash form is unambiguously a filename and
+        // sqlx parses it the same way for both absolute and relative paths.
+        format!("sqlite:{}?mode=rwc", cfg.database.path)
     };
 
     let store = EncryptedStore::new(&db_url, master)
@@ -160,7 +168,7 @@ async fn main() {
                 .await
                 .expect("TLS server error");
         }
-        _ => {
+        (None, None) => {
             tracing::warn!(
                 %addr,
                 domain = %cfg.server.domain,
@@ -173,6 +181,24 @@ async fn main() {
                 .serve(router.into_make_service_with_connect_info::<SocketAddr>())
                 .await
                 .expect("HTTP server error");
+        }
+        // Refuse to start when only one of (tls_cert, tls_key) is set.
+        // Falling back to plain HTTP in this case (the previous behaviour)
+        // would silently disable TLS in production whenever an operator
+        // typo'd a single path, defeating the entire transport-security
+        // guarantee. A hard failure forces the misconfiguration to surface
+        // at startup rather than after public exposure.
+        (Some(_), None) => {
+            panic!(
+                "server.tls_cert is set but server.tls_key is missing — \
+                 both must be set together (HTTPS) or both omitted (plain HTTP)"
+            );
+        }
+        (None, Some(_)) => {
+            panic!(
+                "server.tls_key is set but server.tls_cert is missing — \
+                 both must be set together (HTTPS) or both omitted (plain HTTP)"
+            );
         }
     }
 }

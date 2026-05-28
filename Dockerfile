@@ -9,7 +9,14 @@ WORKDIR /build
 #   - pkg-config + libssl-dev: required because the dependency tree pulls in
 #     `openssl-sys` (transitively, via `webauthn-attestation-ca` → `openssl`).
 #     Cargo.lock does not contain `openssl-src`, so the build links against the
-#     system OpenSSL headers/libraries at compile time.
+#     system OpenSSL headers/libraries at compile time. The resulting binary
+#     is dynamically linked against `libssl` / `libcrypto`; the distroless
+#     runtime stage below (`gcr.io/distroless/cc-debian12`) ships matching
+#     `libssl3` / `libcrypto3` shared libraries from the same Debian 12
+#     (bookworm) base used by `rust:1.85-slim`, so the binary loads cleanly
+#     in the final image. If the runtime base ever drifts off Debian 12,
+#     switch to `openssl = { version = "*", features = ["vendored"] }` in
+#     `Cargo.toml` (and add `perl`, `make` here) to statically embed OpenSSL.
 #   - ca-certificates: needed for `cargo` to fetch git dependencies over HTTPS
 #     during the dependency-resolution step.
 RUN apt-get update && \
