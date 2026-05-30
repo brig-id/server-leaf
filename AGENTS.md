@@ -26,7 +26,11 @@ This repository contains **no business logic**. All logic lives in `brig-id/core
 
 - **`BRIGID_MASTER_KEY` must never appear in `leaf.toml`** — env var or separate secret file only.
 - **Refuse to start** if `MASTER_KEY` is absent or decodes to fewer than 32 bytes.
-- **TLS 1.3 minimum** — configured via rustls `ServerConfig`; no OpenSSL.
+- **TLS 1.3 minimum** — configured via rustls `ServerConfig`; no OpenSSL
+  for TLS. The build container does install `libssl-dev` for
+  `webauthn-rs`'s attestation chain validator only (see `core/AGENTS.md`
+  for the documented scope of that exception); attestation never touches
+  the TLS stack.
 - **Distroless Docker image** (`gcr.io/distroless/cc-debian12`) — no shell, no package manager.
 - **Non-root user** — `USER nonroot:nonroot` in the final Docker stage.
 - **Read-only container filesystem** — `read_only: true` + tmpfs on `/tmp` in compose.yaml.
