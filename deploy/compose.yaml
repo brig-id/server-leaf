@@ -51,10 +51,10 @@ services:
       LEAF_SERVER__HOST: "0.0.0.0"
       LEAF_SERVER__PORT: "8080"
       LEAF_DATABASE__PATH: "/data/brigid.db"
-      # Double-quoted for consistency with the other interpolated values in
-      # this block and to make the `${BRIGID_DOMAIN}` substitution obvious
-      # at a glance. Compose still interpolates inside single quotes, but
-      # mixing quote styles makes review more error-prone.
+      # Single-quoted so the embedded `["..."]` JSON-style brackets and
+      # double quotes pass through to figment verbatim — Compose still
+      # interpolates `${BRIGID_DOMAIN}` inside single quotes, so we get
+      # secret-free substitution without having to escape every inner `"`.
       LEAF_SECURITY__CORS_ORIGINS: '["https://${BRIGID_DOMAIN}"]'
     networks:
       - internal
