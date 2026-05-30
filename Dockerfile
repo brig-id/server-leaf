@@ -9,17 +9,24 @@ FROM rust:1.85-slim@sha256:3490aa77d179a59d67e94239cca96dd84030b564470859200f535
 WORKDIR /build
 
 # Install build-time dependencies:
-#   - pkg-config + libssl-dev: required because the dependency tree pulls in
-#     `openssl-sys` (transitively, via `webauthn-attestation-ca` → `openssl`).
-#     Cargo.lock does not contain `openssl-src`, so the build links against the
-#     system OpenSSL headers/libraries at compile time. The resulting binary
-#     is dynamically linked against `libssl` / `libcrypto`; the distroless
-#     runtime stage below (`gcr.io/distroless/cc-debian12`) ships matching
-#     `libssl3` / `libcrypto3` shared libraries from the same Debian 12
-#     (bookworm) base used by `rust:1.85-slim`, so the binary loads cleanly
-#     in the final image. If the runtime base ever drifts off Debian 12,
-#     switch to `openssl = { version = "*", features = ["vendored"] }` in
-#     `Cargo.toml` (and add `perl`, `make` here) to statically embed OpenSSL.
+#   - pkg-config + libssl-dev: required because `webauthn-rs`'s attestation
+#     CA chain validator (`webauthn-attestation-ca`) pulls in `openssl-sys`
+#     transitively. This is the single documented OpenSSL exception to the
+#     "no OpenSSL" rule in `core/AGENTS.md` §"Hard security constraints"
+#     and is scoped to attestation chain verification only — TLS, KEM, DSA
+#     and KDF stay on rustls / RustCrypto. `Cargo.lock` does not contain
+#     `openssl-src`, so the build links against the system OpenSSL headers
+#     at compile time. The resulting binary is dynamically linked against
+#     `libssl` / `libcrypto`; the distroless runtime stage below
+#     (`gcr.io/distroless/cc-debian12`) ships matching `libssl3` /
+#     `libcrypto3` shared libraries from the same Debian 12 (bookworm) base
+#     used by `rust:1.85-slim`, so the binary loads cleanly in the final
+#     image. If the runtime base ever drifts off Debian 12, pin
+#     `openssl = { version = "0.10", features = ["vendored"] }` in
+#     `Cargo.toml` (and add `perl`, `make` here) to statically embed
+#     OpenSSL. A bounded `0.10` requirement is mandatory: a wildcard `"*"`
+#     would trip `cargo-deny`'s `[bans].wildcards = "warn"` policy and
+#     remove version control over a security-sensitive crate.
 #   - ca-certificates: needed for `cargo` to fetch git dependencies over HTTPS
 #     during the dependency-resolution step.
 RUN apt-get update && \
