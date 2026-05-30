@@ -170,6 +170,24 @@ mod tests {
     }
 
     #[test]
+    fn sections_can_be_entirely_absent() {
+        // The `minimal()` fixture sends empty `database` / `security` tables.
+        // A real `leaf.toml` is also allowed to omit those tables entirely
+        // (the entire `[database]` or `[security]` header may be missing).
+        // This test pins that behaviour so a future refactor of `Config`
+        // cannot accidentally make those tables structurally required.
+        let cfg = load_value(serde_json::json!({
+            "server": { "domain": "localhost" }
+        }));
+        assert_eq!(cfg.server.host, "0.0.0.0");
+        assert_eq!(cfg.server.port, 8080);
+        // Defaults must apply for the omitted sections just like for empty ones.
+        assert_eq!(cfg.security.session_ttl_seconds, 3600);
+        assert!(cfg.security.cors_origins.is_empty());
+        assert!(!cfg.database.path.is_empty());
+    }
+
+    #[test]
     fn domain_is_required() {
         let result: Result<Config, _> = Figment::new()
             .merge(Serialized::defaults(serde_json::json!({

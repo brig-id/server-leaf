@@ -28,11 +28,13 @@ services:
   leaf:
     # Pin to an immutable image digest in production. Floating tags
     # (`brigid/leaf:latest`) can move under your feet during `docker compose
-    # pull`, silently introducing an upgrade or downgrade. Operators must
-    # replace this with the digest of the leaf image they have qualified for
-    # their environment, e.g.
-    #   brigid/leaf:vX.Y.Z@sha256:<64-hex>
-    image: brigid/leaf:latest # TODO: replace with versioned digest before production rollout
+    # pull`, silently introducing an upgrade or downgrade. `${LEAF_IMAGE:?...}`
+    # forces operators to set the variable explicitly to a pinned reference,
+    # e.g.
+    #   LEAF_IMAGE=brigid/leaf:vX.Y.Z@sha256:<64-hex>
+    # Docker Compose refuses to start the stack when the variable is unset,
+    # so a stale or floating `:latest` can never be deployed by accident.
+    image: ${LEAF_IMAGE:?set LEAF_IMAGE to a pinned image digest (e.g. brigid/leaf:vX.Y.Z@sha256:<64-hex>)}
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -53,7 +55,7 @@ services:
       # this block and to make the `${BRIGID_DOMAIN}` substitution obvious
       # at a glance. Compose still interpolates inside single quotes, but
       # mixing quote styles makes review more error-prone.
-      LEAF_SECURITY__CORS_ORIGINS: "[\"https://${BRIGID_DOMAIN}\"]"
+      LEAF_SECURITY__CORS_ORIGINS: '["https://${BRIGID_DOMAIN}"]'
     networks:
       - internal
     expose:
