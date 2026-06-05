@@ -1,0 +1,10 @@
+{
+  "conventionalCommits.gitmoji": true,
+  "conventionalCommits.scopes": [
+    "leaf",
+    "config",
+    "docker",
+    "ci",
+    "deps"
+  ]
+}

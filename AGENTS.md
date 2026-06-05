@@ -20,17 +20,16 @@ This repository contains **no business logic**. All logic lives in `brig-id/core
 
 ## Current phase
 
-**Phase 7** — see `/workspaces/.dev/phases/phase-7.md` for the full checklist.
+**Phase 3** — Integration & E2E. See `/workspaces/.dev/phases/phase-3.md`.
 
 ## Hard security constraints
 
 - **`BRIGID_MASTER_KEY` must never appear in `leaf.toml`** — env var or separate secret file only.
 - **Refuse to start** if `MASTER_KEY` is absent or decodes to fewer than 32 bytes.
-- **TLS 1.3 minimum** — configured via rustls `ServerConfig`; no OpenSSL
-  for TLS. The build container does install `libssl-dev` for
-  `webauthn-rs`'s attestation chain validator only (see `core/AGENTS.md`
-  for the documented scope of that exception); attestation never touches
-  the TLS stack.
+- **TLS 1.3 minimum** — configured via rustls `ServerConfig`; no OpenSSL for TLS.
+  The build container installs `libssl-dev` for `webauthn-rs`'s attestation chain
+  validator only (see `core/AGENTS.md` for the documented scope of that exception);
+  attestation never touches the TLS stack.
 - **Distroless Docker image** (`gcr.io/distroless/cc-debian12`) — no shell, no package manager.
 - **Non-root user** — `USER nonroot:nonroot` in the final Docker stage.
 - **Read-only container filesystem** — `read_only: true` + tmpfs on `/tmp` in compose.yaml.
@@ -64,6 +63,44 @@ cors_origins = ["https://example.com"]
 - `clap` — CLI argument parsing
 - `figment` — config merging (TOML + env)
 - `tokio` (full), `tracing-subscriber` (JSON logs)
+
+## Commit conventions
+
+Format: `type(scope): <emoji> description`
+
+| Type | Emoji | When |
+| --- | --- | --- |
+| `feat` | ✨ | New feature |
+| `fix` | 🐛 | Bug fix |
+| `docs` | 📝 | Documentation only |
+| `chore` | 🔧 | Maintenance, config |
+| `test` | ✅ | Tests |
+| `refactor` | ♻️ | Restructuring, no behaviour change |
+| `perf` | ⚡️ | Performance |
+| `ci` | 👷 | CI/CD |
+| `security` | 🔒 | Security fix or hardening |
+| `build` | 📦 | Build system, dependencies |
+| `revert` | ⏪ | Reverts a previous commit |
+
+### Allowed scopes
+
+| Scope | Maps to |
+| --- | --- |
+| `leaf` | `src/main.rs`, binary entry point |
+| `config` | Configuration loading (`src/config.rs`) |
+| `docker` | `Dockerfile`, `deploy/` |
+| `ci` | `.github/workflows/` |
+| `deps` | Dependency bumps |
+
+**Do not use a scope outside this list.** If a new source file or concern is added,
+update this table and `.vscode/settings.json`.
+
+```text
+feat(leaf): ✨ serve Qwik static assets from ui/dist/
+fix(config): 🐛 reject partial TLS config at startup
+ci(ci): 👷 add conventional commit check
+chore(deps): 📦 bump brigid-api to latest core rev
+```
 
 ## Commands
 
