@@ -64,6 +64,14 @@ pub struct ServerConfig {
 
     /// Path to the TLS private key PEM file. Required for HTTPS.
     pub tls_key: Option<PathBuf>,
+
+    /// Path to the pre-built Qwik UI static files (e.g. `"ui/dist"`).
+    ///
+    /// When set, requests that do not match any API route are served from this
+    /// directory. Unknown paths fall back to `index.html` (SPA routing).
+    /// Omit or leave unset to disable static file serving (API-only mode).
+    #[serde(default)]
+    pub ui_dist_dir: Option<PathBuf>,
 }
 
 /// Database settings.
@@ -221,6 +229,25 @@ mod tests {
         assert_eq!(cfg.security.session_ttl_seconds, 7200);
         assert_eq!(cfg.security.cors_origins, ["https://example.com"]);
         assert!(cfg.server.tls_cert.is_some());
+    }
+
+    #[test]
+    fn ui_dist_dir_defaults_to_none() {
+        let cfg = load_value(minimal());
+        assert!(cfg.server.ui_dist_dir.is_none());
+    }
+
+    #[test]
+    fn ui_dist_dir_is_parsed_when_set() {
+        let cfg = load_value(serde_json::json!({
+            "server": { "domain": "localhost", "ui_dist_dir": "/app/ui/dist" },
+            "database": {},
+            "security": {}
+        }));
+        assert_eq!(
+            cfg.server.ui_dist_dir.as_deref(),
+            Some(std::path::Path::new("/app/ui/dist")),
+        );
     }
 
     #[test]

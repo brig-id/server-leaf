@@ -137,6 +137,15 @@ check "GET /.well-known/did.json — has id field" \
   "${BASE_URL}/.well-known/did.json" "200" \
   '.id | startswith("did:web:")'
 
+# UI: /login and /register must return the Qwik SPA index.html.
+# This requires LEAF_SERVER__UI_DIST_DIR to be set and the dist to exist.
+# If the server is running without a UI dist dir, these will return 404 — skip
+# these checks with SKIP_UI_CHECKS=1 when running in API-only mode.
+if [ "${SKIP_UI_CHECKS:-0}" != "1" ]; then
+  check "GET /login    → 200 + HTML (Qwik SPA)" "${BASE_URL}/login"    "200"
+  check "GET /register → 200 + HTML (Qwik SPA)" "${BASE_URL}/register" "200"
+fi
+
 # Auth endpoints — missing body should return 415 (Unsupported Media Type) or 422
 check_one_of "POST /auth/register/begin without body → 415/422" \
   "${BASE_URL}/auth/register/begin" "415 422" "." "POST"

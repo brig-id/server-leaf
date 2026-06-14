@@ -2,8 +2,17 @@
 #
 # For local development only. Do NOT use in production.
 #
-# Usage:
-#   BRIGID_MASTER_KEY=<64-hex-chars> docker compose -f deploy/compose.dev.yaml up
+# Requirements:
+#   1. Build the Qwik UI first (in the brig-id/web repo):
+#        cd /workspaces/web && pnpm install --frozen-lockfile && pnpm build
+#   2. Then start the server:
+#        BRIGID_MASTER_KEY=<64-hex-chars> docker compose -f deploy/compose.dev.yaml up
+#
+# The compiled UI dist is bind-mounted from the host — no Node.js stage runs
+# inside Docker for development. To test the full multi-stage Docker build
+# (including the UI stage), run `docker build` from the server-leaf root after
+# copying the web repo into `ui/`:
+#   cp -r /workspaces/web ./ui && docker build -t brigid/leaf:dev .
 
 volumes:
   leaf-data-dev:
@@ -19,6 +28,8 @@ services:
       - /tmp:size=64m,mode=1777
     volumes:
       - leaf-data-dev:/data
+      # Pre-built Qwik UI static files. Run `pnpm build` in brig-id/web first.
+      - /workspaces/web/dist:/ui/dist:ro
     environment:
       RUST_LOG: "brigid_api=debug,leaf=debug,tower_http=debug,warn"
       BRIGID_MASTER_KEY: "${BRIGID_MASTER_KEY:?BRIGID_MASTER_KEY must be set}"
@@ -26,6 +37,8 @@ services:
       LEAF_SERVER__HOST: "0.0.0.0"
       LEAF_SERVER__PORT: "8080"
       LEAF_DATABASE__PATH: "/data/brigid.db"
+      # Serve the Qwik UI static files from the bind-mounted dist directory.
+      LEAF_SERVER__UI_DIST_DIR: "/ui/dist"
     ports:
       - "8080:8080"
     healthcheck:
