@@ -15,6 +15,8 @@ mod config;
 
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
+use leaf::apply_ui_fallback;
+
 use clap::Parser;
 use tracing_subscriber::{EnvFilter, fmt};
 use url::Url;
@@ -126,7 +128,15 @@ async fn main() {
     let state = Arc::new(AppState::new(
         store, webauthn, oidc_key, base_url, vsid_salt,
     ));
-    let router = build_router(state, &cors_origins);
+    let api_router = build_router(state, &cors_origins);
+
+    // Optionally serve the pre-built Qwik UI from the configured directory.
+    // API routes always take priority; any unmatched path is handled by
+    // ServeDir, which falls back to `index.html` for SPA client-side routing.
+    if let Some(ref dir) = cfg.server.ui_dist_dir {
+        tracing::info!(path = %dir.display(), "serving UI static files");
+    }
+    let app = apply_ui_fallback(api_router, cfg.server.ui_dist_dir.as_deref());
 
     // -- Server --------------------------------------------------------------
     // Parse the host as an IpAddr first so that IPv6 addresses are bracketed
@@ -164,7 +174,7 @@ async fn main() {
                 .expect("failed to load TLS certificate/key — check tls_cert/tls_key paths");
             axum_server::bind_rustls(addr, tls_config)
                 .handle(handle)
-                .serve(router.into_make_service_with_connect_info::<SocketAddr>())
+                .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                 .await
                 .expect("TLS server error");
         }
@@ -178,7 +188,7 @@ async fn main() {
             );
             axum_server::bind(addr)
                 .handle(handle)
-                .serve(router.into_make_service_with_connect_info::<SocketAddr>())
+                .serve(app.into_make_service_with_connect_info::<SocketAddr>())
                 .await
                 .expect("HTTP server error");
         }

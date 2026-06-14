@@ -10,6 +10,9 @@ rust-version = "1.85"
 name = "leaf"
 path = "src/main.rs"
 
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
 # brig·id core crates (git dep pointing to the core repository)
 brigid-api = { git = "https://github.com/brig-id/core", rev = "d5f14df608858f417ab24dfec0beb0e9dd7cf224", package = "brigid-api" }
@@ -33,7 +36,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 
 # HTTP / TLS
+axum = "0.8"
 axum-server = { version = "0.8", features = ["tls-rustls"] }
+tower-http = { version = "0.6", features = ["fs"] }
 
 # Misc
 serde = { version = "1", features = ["derive"] }
@@ -41,7 +46,21 @@ url = "2"
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["test"] }
+http-body-util = "0.1"
 serde_json = "1"
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+
+[patch.crates-io]
+# Rust 1.86+ compatibility patches — identical to the ones in brig-id/core.
+# `asn1-rs-impl` calls `Span::call_site().into()` which lost its `From` impl
+# in newer proc-macro2; the patched version calls `proc_macro2::Span::call_site()`.
+# `openssl-macros` emitted C-string literals that Rust 1.96 rejects; patched.
+# `webauthn-authenticator-rs` bumps rust-version guard to 1.88 and silences
+# the Rust 1.96 `clippy::needless_pass_by_ref_mut` warnings.
+asn1-rs-impl = { path = "vendor/asn1-rs-impl" }
+openssl-macros = { path = "vendor/openssl-macros" }
+webauthn-authenticator-rs = { path = "vendor/webauthn-authenticator-rs" }
 
 [profile.release]
 panic = "abort"

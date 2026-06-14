@@ -1,10 +1,56 @@
 # ---------------------------------------------------------------------------
-# Stage 1 — Build
+# brig·id leaf — multi-stage production image
+#
+# Three stages:
+#   1. ui-builder  — Node.js: build the Qwik UI → dist/
+#   2. rust-builder — Rust: compile the leaf binary (release)
+#   3. runtime     — distroless: leaf binary + UI static files
+#
+# Prepare the UI source before building (option A — local copy):
+#   cp -r /workspaces/web ./ui   # or: ln -sf ../web ui
+#   docker build -t brigid/leaf:dev .
+#
+# Named-context variant (BuildKit, recommended for CI):
+#   docker buildx build \
+#     --build-context ui-src=/path/to/brig-id-web \
+#     -t brigid/leaf:dev .
+#
+# For local development without rebuilding the image, use:
+#   docker compose -f deploy/compose.dev.yaml up
+# (the compose file bind-mounts a pre-built ui/dist from the host).
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Stage 1 — UI Build
+# ---------------------------------------------------------------------------
+# The `ui/` directory in the build context must contain the brig-id/web
+# source (package.json, src/, public/, …). A placeholder `ui/.gitkeep` is
+# committed to the repo; populate it before running `docker build`.
+#
+# If no package.json is found (placeholder only), the stage creates an empty
+# dist/ so that the runtime stage still copies a valid (though empty) path.
+# In that case, set LEAF_SERVER__UI_DIST_DIR to an actual dist in production.
+FROM node:22-slim AS ui-builder
+WORKDIR /ui
+# Pin the pnpm version matching the web repo's packageManager field.
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+COPY ui/ ./
+RUN if [ -f package.json ]; then \
+      pnpm install --frozen-lockfile && \
+      pnpm build; \
+    else \
+      mkdir -p dist; \
+    fi
+
+# ---------------------------------------------------------------------------
+# Stage 2 — Build the Rust binary
 # ---------------------------------------------------------------------------
 # Pin the builder image to an immutable digest so rebuilds are deterministic
 # and supply-chain risk from upstream tag movement is bounded. Bump the
 # digest together with the human-readable tag when upgrading Rust.
-FROM rust:1.85-slim@sha256:3490aa77d179a59d67e94239cca96dd84030b564470859200f535b942bdffedf AS builder
+FROM rust:1.85-slim@sha256:3490aa77d179a59d67e94239cca96dd84030b564470859200f535b942bdffedf AS rust-builder
 
 WORKDIR /build
 
@@ -35,9 +81,11 @@ RUN apt-get update && \
 
 # Copy manifests first so dependency layers are cached separately from source.
 COPY Cargo.toml Cargo.lock ./
+COPY vendor/ ./vendor/
 
 # Build a dummy binary to cache all dependencies.
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && \
+    echo 'pub fn dummy() {}' > src/lib.rs && \
     cargo build --release --locked && \
     rm -rf src
 
@@ -45,21 +93,25 @@ RUN mkdir src && echo 'fn main() {}' > src/main.rs && \
 COPY src/ ./src/
 
 # Force recompile of the application code (preserve cached deps).
-RUN touch src/main.rs && \
+RUN touch src/main.rs src/lib.rs && \
     cargo build --release --locked
 
 # ---------------------------------------------------------------------------
-# Stage 2 — Runtime (distroless, minimal attack surface)
+# Stage 3 — Runtime (distroless, minimal attack surface)
 # ---------------------------------------------------------------------------
 # Pin runtime image to an immutable digest — same rationale as the builder:
 # deterministic rebuilds and bounded supply-chain exposure. The `cc-debian12`
 # variant ships `libssl3`/`libcrypto3` matching the `rust:1.85-slim` builder
 # above (see the libssl comment), so the dynamically-linked binary loads
 # cleanly. Re-pin whenever the runtime base is refreshed.
-FROM gcr.io/distroless/cc-debian12@sha256:5882a8b7d32186f9366147e7d6908c0628db04675476caf7afe3d5794cb6e1b6
+FROM gcr.io/distroless/cc-debian12@sha256:5882a8b7d32186f9366147e7d6908c0628db04675476caf7afe3d5794cb6e1b6 AS runtime
 
-# Copy the compiled binary from the build stage.
-COPY --from=builder /build/target/release/leaf /leaf
+# Copy the compiled binary from the Rust build stage.
+COPY --from=rust-builder /build/target/release/leaf /leaf
+
+# Copy the pre-built Qwik UI static files from the Node.js build stage.
+# These are served by the leaf binary under LEAF_SERVER__UI_DIST_DIR.
+COPY --from=ui-builder /ui/dist /ui/dist
 
 # Run as non-root user (UID 65532 = nonroot in distroless).
 USER nonroot:nonroot
