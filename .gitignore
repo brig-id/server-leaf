@@ -7,3 +7,6 @@
 # Editor
 *.orig
 *.swp
+
+# Dev
+brigid-dev.db
