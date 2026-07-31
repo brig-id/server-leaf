@@ -12,6 +12,8 @@ issues, pull requests. No exceptions.
 
 - Binary `leaf` (`src/main.rs`) — the only entry point
 - Configuration loading (`leaf.toml` + env vars via `figment`)
+- Serving the pre-built `web` UI as static files (`server.ui_dist_dir`, SPA fallback) —
+  the reference mechanism `server-grove`/`server-forest` are expected to follow
 - Docker multi-stage build + distroless image
 - Docker Compose deploy setup (`deploy/`)
 - E2E smoke tests (`tests/e2e/`)
