@@ -50,9 +50,17 @@ RUN if [ -f package.json ]; then \
 # Pin the builder image to an immutable digest so rebuilds are deterministic
 # and supply-chain risk from upstream tag movement is bounded. Bump the
 # digest together with the human-readable tag when upgrading Rust.
-FROM rust:1.85-slim@sha256:3490aa77d179a59d67e94239cca96dd84030b564470859200f535b942bdffedf AS rust-builder
+FROM rust:1.88-slim@sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89 AS rust-builder
 
 WORKDIR /build
+
+# Pre-create an empty, nonroot-owned /data directory to copy into the
+# runtime stage below. The distroless image has no shell, so `RUN mkdir`
+# can't happen there — and without this, a fresh named volume mounted at
+# /data inherits root:root ownership from Docker's default volume
+# initialization, which the `nonroot` runtime user (UID 65532) can't write
+# to, so SQLite fails with "unable to open database file" on first start.
+RUN mkdir -p /data
 
 # Install build-time dependencies:
 #   - pkg-config + libssl-dev: required because `webauthn-rs`'s attestation
@@ -66,8 +74,10 @@ WORKDIR /build
 #     `libssl` / `libcrypto`; the distroless runtime stage below
 #     (`gcr.io/distroless/cc-debian12`) ships matching `libssl3` /
 #     `libcrypto3` shared libraries from the same Debian 12 (bookworm) base
-#     used by `rust:1.85-slim`, so the binary loads cleanly in the final
-#     image. If the runtime base ever drifts off Debian 12, pin
+#     used by `rust:1.88-slim`, so the binary loads cleanly in the final
+#     image. `rust:1.89-slim` and later move to Debian 13 (trixie) — do not
+#     bump past 1.88 without also re-checking this ABI match. If the runtime
+#     base ever drifts off Debian 12, pin
 #     `openssl = { version = "0.10", features = ["vendored"] }` in
 #     `Cargo.toml` (and add `perl`, `make` here) to statically embed
 #     OpenSSL. A bounded `0.10` requirement is mandatory: a wildcard `"*"`
@@ -101,7 +111,7 @@ RUN touch src/main.rs src/lib.rs && \
 # ---------------------------------------------------------------------------
 # Pin runtime image to an immutable digest — same rationale as the builder:
 # deterministic rebuilds and bounded supply-chain exposure. The `cc-debian12`
-# variant ships `libssl3`/`libcrypto3` matching the `rust:1.85-slim` builder
+# variant ships `libssl3`/`libcrypto3` matching the `rust:1.88-slim` builder
 # above (see the libssl comment), so the dynamically-linked binary loads
 # cleanly. Re-pin whenever the runtime base is refreshed.
 FROM gcr.io/distroless/cc-debian12@sha256:5882a8b7d32186f9366147e7d6908c0628db04675476caf7afe3d5794cb6e1b6 AS runtime
@@ -112,6 +122,11 @@ COPY --from=rust-builder /build/target/release/leaf /leaf
 # Copy the pre-built Qwik UI static files from the Node.js build stage.
 # These are served by the leaf binary under LEAF_SERVER__UI_DIST_DIR.
 COPY --from=ui-builder /ui/dist /ui/dist
+
+# Nonroot-owned mount point for the SQLite database (see the /data comment
+# in the rust-builder stage). Numeric UID:GID avoids relying on name
+# resolution across stages.
+COPY --from=rust-builder --chown=65532:65532 /data /data
 
 # Run as non-root user (UID 65532 = nonroot in distroless).
 USER nonroot:nonroot
