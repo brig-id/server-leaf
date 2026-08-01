@@ -4,38 +4,15 @@
 // directly, since the behaviour under test (CLI parsing, env handling,
 // process exit codes, signal handling) only exists at that boundary.
 
+mod common;
+
 use std::{
-    net::{SocketAddr, TcpListener, TcpStream},
-    path::PathBuf,
+    net::{SocketAddr, TcpListener},
     process::{Command, Stdio},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
-// Fixed, valid-looking 64-hex-char (32 byte) master key — deterministic so
-// tests don't need a `rand`/`hex` dev-dependency just for fixtures.
-const TEST_MASTER_KEY: &str = "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0";
-
-fn leaf_bin() -> PathBuf {
-    PathBuf::from(env!("CARGO_BIN_EXE_leaf"))
-}
-
-/// Binds an ephemeral port and immediately releases it. Small TOCTOU race
-/// (something else could grab it before `leaf` does), acceptable for tests.
-fn free_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind ephemeral port");
-    listener.local_addr().expect("local_addr").port()
-}
-
-fn wait_until_listening(addr: SocketAddr, timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
-    while Instant::now() < deadline {
-        if TcpStream::connect(addr).is_ok() {
-            return true;
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    false
-}
+use common::{TEST_MASTER_KEY, free_port, leaf_bin, wait_until_listening};
 
 fn output_text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).into_owned()
