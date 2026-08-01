@@ -18,16 +18,18 @@ use tower_http::set_header::SetResponseHeaderLayer;
 /// header layer below still applies) and unknown routes produce the default
 /// axum 404.
 ///
-/// `brigid_api::build_router` already applies this same header set, but only
-/// around the routes it defines *before* returning — in axum 0.8, a `.layer()`
-/// wraps whatever routes/fallback exist at the time it's called, not ones
-/// added afterwards. Since `server-leaf` always calls `fallback_service`
-/// *after* `build_router` returns, that inner layer silently never reached
-/// the UI responses (`/login`, `/register`, static assets, …), leaving them
-/// with no CSP/X-Frame-Options/HSTS at all. Re-applying the same headers here
-/// — genuinely last, after the fallback is attached — is what actually
-/// covers every response `leaf` serves. `if_not_present` makes this a no-op
-/// for API routes, which already carry these headers from the inner layer.
+/// `brigid_api::build_router` already applies a version of this same header
+/// set, but only around the routes it defines *before* returning — in axum
+/// 0.8, a `.layer()` wraps whatever routes/fallback exist at the time it's
+/// called, not ones added afterwards. Since `server-leaf` always calls
+/// `fallback_service` *after* `build_router` returns, that inner layer
+/// silently never reached the UI responses (`/login`, `/register`, static
+/// assets, …), leaving them with no CSP/X-Frame-Options/HSTS at all.
+/// Re-applying the same headers here — genuinely last, after the fallback is
+/// attached — is what actually covers every response `leaf` serves.
+/// `if_not_present` makes this a no-op for API routes, which already carry
+/// these headers from the inner layer (whose CSP value has since diverged
+/// from this one — see the `'unsafe-inline'` TODO below).
 pub fn apply_ui_fallback(router: Router, dist: Option<&Path>) -> Router {
     let router = match dist {
         Some(path) => {
@@ -52,15 +54,24 @@ pub fn apply_ui_fallback(router: Router, dist: Option<&Path>) -> Router {
         ))
         .layer(SetResponseHeaderLayer::if_not_present(
             HeaderName::from_static("content-security-policy"),
-            // Matches brigid-api's policy (see the comment above): Qwik's
-            // static/SSG build emits no inline scripts, so `script-src
-            // 'self'` holds with no nonce needed.
+            // TODO(phases/backlog.md "CSP allows unsafe-inline — temporary"):
+            // `'unsafe-inline'` here is a known, tracked stopgap, not a
+            // considered security posture. Confirmed by loading the app in a
+            // real browser with this CSP actually enforced (it wasn't, until
+            // the fix this comment is part of): Qwik's static/SSG build DOES
+            // emit inline `<script>`/`<style>` tags (its resumability
+            // bootstrap) — contrary to what an earlier version of this
+            // comment (and brigid-api's copy of it) assumed. Without
+            // `unsafe-inline` the browser blocks them outright and the app
+            // never becomes interactive. `fonts.bunny.net` is the actual
+            // external font host `web` loads from. See the backlog entry for
+            // the real fix (build-time hash allowlist).
             HeaderValue::from_static(
                 "default-src 'self'; \
-                 script-src 'self'; \
-                 style-src 'self'; \
+                 script-src 'self' 'unsafe-inline'; \
+                 style-src 'self' 'unsafe-inline' https://fonts.bunny.net; \
                  img-src 'self' data:; \
-                 font-src 'self'; \
+                 font-src 'self' https://fonts.bunny.net; \
                  connect-src 'self'; \
                  frame-ancestors 'none'; \
                  object-src 'none'; \
