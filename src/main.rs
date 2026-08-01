@@ -58,6 +58,15 @@ async fn main() {
         .init();
 
     // -- Configuration -------------------------------------------------------
+    // figment's TOML file provider treats a missing file as "no data" rather
+    // than an error, so an explicit --config typo would otherwise fall
+    // through silently to an unrelated "missing field `server`" error with
+    // no mention of the path that was actually looked up.
+    if let Some(path) = cli.config.as_deref() {
+        if !path.exists() {
+            panic!("config file not found: {}", path.display());
+        }
+    }
     let cfg = config::load(cli.config.as_deref()).expect("configuration error");
 
     // -- MASTER_KEY ----------------------------------------------------------
