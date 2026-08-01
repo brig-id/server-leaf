@@ -112,3 +112,28 @@ docker build -t brigid/leaf .
 docker compose -f deploy/compose.dev.yaml up
 curl http://localhost:8080/health
 ```
+
+## Local dev without Docker (paired with `web`'s HTTPS setup)
+
+Faster inner loop than `compose.dev.yaml` when iterating on `leaf` itself — run the
+binary directly against the `web` dev server instead of a prebuilt `dist/`. Must match
+`web`'s dev origin (`brigid.localhost:5173`, see `web/README.md`'s "HTTPS in dev"
+section) or WebAuthn ceremonies fail with an origin/RP-ID mismatch.
+
+```bash
+export BRIGID_MASTER_KEY=$(openssl rand -hex 32)   # one-time per shell/machine — any 64 hex chars
+export LEAF_DATABASE__PATH=./brigid-dev.db          # gitignored, auto-created on first run
+export LEAF_SERVER__DOMAIN=brigid.localhost         # must equal web's dev host (WebAuthn RP ID)
+export LEAF_SERVER__PUBLIC_URL=https://brigid.localhost:5173  # https — see web/README.md
+
+cargo build -p leaf
+"$CARGO_TARGET_DIR"/debug/leaf
+```
+
+Then in `web`: generate the mkcert cert once (`web/README.md`'s "HTTPS in dev"), and
+`pnpm dev`. Open `https://brigid.localhost:5173/register/`.
+
+**Currently all manual, no persistence across shells/rebuilds** — `BRIGID_MASTER_KEY`
+must be re-exported every session, and the mkcert cert is regenerated per clone. Tracked
+as a candidate for automation (a `dev.sh` script, or wiring into the devcontainer's
+`postCreateCommand`) in `.dev/phases/backlog.md`.
