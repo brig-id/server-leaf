@@ -143,3 +143,65 @@ async fn without_dist_unknown_path_returns_404() {
 
     assert_eq!(resp.status(), 404);
 }
+
+// ---------------------------------------------------------------------------
+// Security headers (CSP, X-Frame-Options, HSTS, nosniff) reach every
+// response — including the UI fallback, not just routes defined before
+// apply_ui_fallback is called. Regression test for the gap where a
+// pre-existing `.layer()` (like brigid-api's own security_headers) silently
+// stopped covering the fallback once axum's `.fallback_service()` was
+// attached afterwards.
+// ---------------------------------------------------------------------------
+
+fn assert_has_security_headers(resp: &axum::response::Response) {
+    let headers = resp.headers();
+    assert_eq!(headers.get("x-content-type-options").unwrap(), "nosniff");
+    assert_eq!(headers.get("x-frame-options").unwrap(), "DENY");
+    assert!(headers.contains_key("strict-transport-security"));
+    let csp = headers
+        .get("content-security-policy")
+        .expect("content-security-policy header missing")
+        .to_str()
+        .unwrap();
+    assert!(
+        csp.contains("script-src 'self'"),
+        "expected script-src 'self' in CSP, got: {csp}"
+    );
+}
+
+#[tokio::test]
+async fn ui_fallback_response_carries_security_headers() {
+    let dist = make_dist();
+    let app = apply_ui_fallback(Router::new(), Some(dist.path()));
+
+    let resp = app
+        .oneshot(Request::builder().uri("/login").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 200);
+    assert_has_security_headers(&resp);
+}
+
+#[tokio::test]
+async fn api_route_response_also_carries_security_headers() {
+    let dist = make_dist();
+    let base = Router::new().route(
+        "/api/health",
+        get(|| async { axum::http::StatusCode::NO_CONTENT }),
+    );
+    let app = apply_ui_fallback(base, Some(dist.path()));
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), 204);
+    assert_has_security_headers(&resp);
+}
