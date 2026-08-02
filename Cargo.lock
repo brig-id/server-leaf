@@ -1962,6 +1962,7 @@ dependencies = [
  "http-body-util",
  "jsonwebtoken",
  "reqwest",
+ "rustls",
  "serde",
  "serde_json",
  "tempfile",
