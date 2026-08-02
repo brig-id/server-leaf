@@ -128,6 +128,16 @@ fn default_session_ttl() -> u64 {
     3600
 }
 
+/// Builds the shared TOML+env figment used by both [`load`] and
+/// [`load_database`], so the two never drift on precedence/prefix rules.
+fn figment(config_path: Option<&std::path::Path>) -> Figment {
+    let mut figment = Figment::new();
+    if let Some(path) = config_path {
+        figment = figment.merge(Toml::file(path));
+    }
+    figment.merge(Env::prefixed("LEAF_").split("__"))
+}
+
 /// Load the merged configuration.
 ///
 /// `config_path` is optional — when `None`, configuration is read entirely
@@ -135,11 +145,27 @@ fn default_session_ttl() -> u64 {
 /// where TOML files complicate secret management).
 #[allow(clippy::result_large_err)] // figment::Error is inherently large; not reducible.
 pub fn load(config_path: Option<&std::path::Path>) -> Result<Config, figment::Error> {
-    let mut figment = Figment::new();
-    if let Some(path) = config_path {
-        figment = figment.merge(Toml::file(path));
-    }
-    figment.merge(Env::prefixed("LEAF_").split("__")).extract()
+    figment(config_path).extract()
+}
+
+/// Load just [`DatabaseConfig`] — used by `leaf rotate-key`, which needs the
+/// database path and nothing else. Extracting `Config` in full would demand
+/// `server.domain` (required, no default) even though rotate-key never
+/// touches the server/TLS/CORS settings that field and its siblings exist
+/// for.
+///
+/// `.focus("database")` matters here: the shared figment tree is shaped for
+/// `Config` as a whole, so `LEAF_DATABASE__PATH` nests under a `database`
+/// key (`{"database": {"path": ...}}`) rather than sitting at the top level.
+/// Extracting `DatabaseConfig` straight from that tree would look for a
+/// top-level `path` key, silently miss it, and fall back to
+/// `default_db_path()` instead of erroring — `.focus` re-roots the tree at
+/// `database` first so the field actually lines up.
+#[allow(clippy::result_large_err)]
+pub fn load_database(
+    config_path: Option<&std::path::Path>,
+) -> Result<DatabaseConfig, figment::Error> {
+    figment(config_path).focus("database").extract()
 }
 
 // ---------------------------------------------------------------------------
