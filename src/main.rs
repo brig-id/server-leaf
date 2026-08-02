@@ -123,6 +123,17 @@ async fn rotate_key(db: &config::DatabaseConfig, old_path: &Path, new_path: &Pat
 
 #[tokio::main]
 async fn main() {
+    // `axum-server`'s `tls-rustls` feature and `reqwest`'s TLS backend each
+    // pull in a different rustls crypto provider (`aws-lc-rs` and `ring`
+    // respectively) — Cargo unifies both onto the one `rustls` crate in the
+    // dependency graph, so rustls refuses to auto-select either and panics
+    // the first time a TLS handshake is attempted. Installing one explicitly
+    // up front resolves the ambiguity; which of the two is picked doesn't
+    // matter functionally, so this matches axum-server's own default pairing.
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("no CryptoProvider should be installed yet — this runs once at startup");
+
     let cli = Cli::parse();
 
     // Structured JSON logs — verbosity controlled by RUST_LOG.

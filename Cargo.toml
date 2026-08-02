@@ -39,6 +39,9 @@ tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 axum = "0.8"
 axum-server = { version = "0.8", features = ["tls-rustls"] }
 tower-http = { version = "0.6", features = ["fs", "set-header"] }
+# Only used to install a default process-wide `CryptoProvider` at startup —
+# see the call site in main.rs for why this is needed.
+rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs"] }
 
 # Misc
 serde = { version = "1", features = ["derive"] }
