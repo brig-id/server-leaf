@@ -20,9 +20,10 @@ issues, pull requests. No exceptions.
 
 This repository contains **no business logic**. All logic lives in `brig-id/core`.
 
-## Current phase
+## Roadmap & planning
 
-**Phase 3** — Integration & E2E. See `/workspaces/.dev/phases/phase-3.md`.
+TODOs, backlog ideas, and phase/release status for this repo are tracked as cards in
+[brig-id Project 1](https://github.com/orgs/brig-id/projects/1), not in local files.
 
 ## Hard security constraints
 
@@ -136,4 +137,4 @@ Then in `web`: generate the mkcert cert once (`web/README.md`'s "HTTPS in dev"),
 **Currently all manual, no persistence across shells/rebuilds** — `BRIGID_MASTER_KEY`
 must be re-exported every session, and the mkcert cert is regenerated per clone. Tracked
 as a candidate for automation (a `dev.sh` script, or wiring into the devcontainer's
-`postCreateCommand`) in `.dev/phases/backlog.md`.
+`postCreateCommand`) in [brig-id Project 1](https://github.com/orgs/brig-id/projects/1).
