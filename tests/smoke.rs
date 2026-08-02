@@ -25,7 +25,7 @@ struct TestServer {
     pub base_url: String,
     pub client: reqwest::Client,
     _db_dir: tempfile::TempDir,
-    _ui_dir: Option<tempfile::TempDir>,
+    _ui_dir: tempfile::TempDir,
 }
 
 impl Drop for TestServer {
@@ -53,7 +53,7 @@ fn start_leaf() -> TestServer {
     )
     .expect("write fake index.html");
 
-    let child = Command::new(leaf_bin())
+    let mut child = Command::new(leaf_bin())
         .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
         .env("LEAF_SERVER__DOMAIN", "localhost")
         .env("LEAF_SERVER__HOST", "127.0.0.1")
@@ -69,10 +69,14 @@ fn start_leaf() -> TestServer {
         .expect("spawn leaf");
 
     let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
-    assert!(
-        wait_until_listening(addr, Duration::from_secs(5)),
-        "leaf did not start listening"
-    );
+    if !wait_until_listening(addr, Duration::from_secs(5)) {
+        // `child` isn't wrapped in `TestServer` yet, so its `Drop` (which
+        // would kill it) never runs — without this, a failed startup leaks
+        // the orphaned `leaf` process instead of just failing the test.
+        child.kill().ok();
+        child.wait().ok();
+        panic!("leaf did not start listening");
+    }
 
     TestServer {
         child,
@@ -83,7 +87,7 @@ fn start_leaf() -> TestServer {
         base_url: format!("http://localhost:{port}"),
         client: reqwest::Client::new(),
         _db_dir: db_dir,
-        _ui_dir: Some(ui_dir),
+        _ui_dir: ui_dir,
     }
 }
 
