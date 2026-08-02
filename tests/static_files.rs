@@ -43,7 +43,12 @@ async fn get_login_returns_index_html() {
     let app = apply_ui_fallback(Router::new(), Some(dist.path()));
 
     let resp = app
-        .oneshot(Request::builder().uri("/login").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/login")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -51,7 +56,10 @@ async fn get_login_returns_index_html() {
     let ct = resp.headers()["content-type"].to_str().unwrap();
     assert!(ct.contains("text/html"), "expected text/html, got {ct}");
     let body = body_string(resp).await;
-    assert!(body.contains("SPA"), "body should contain index.html content");
+    assert!(
+        body.contains("SPA"),
+        "body should contain index.html content"
+    );
 }
 
 #[tokio::test]
@@ -137,7 +145,12 @@ async fn without_dist_unknown_path_returns_404() {
     let app = apply_ui_fallback(Router::new(), None);
 
     let resp = app
-        .oneshot(Request::builder().uri("/login").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/login")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -175,7 +188,12 @@ async fn ui_fallback_response_carries_security_headers() {
     let app = apply_ui_fallback(Router::new(), Some(dist.path()));
 
     let resp = app
-        .oneshot(Request::builder().uri("/login").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/login")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
