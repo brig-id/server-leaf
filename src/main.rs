@@ -13,11 +13,16 @@
 
 mod config;
 
-use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 
 use leaf::apply_ui_fallback;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use tracing_subscriber::{EnvFilter, fmt};
 use url::Url;
 
@@ -39,8 +44,77 @@ struct Cli {
     ///
     /// Optional — if omitted, configuration is read entirely from `LEAF_*`
     /// environment variables (the recommended setup for container deployments).
-    #[arg(long)]
+    /// Used both to start the server and to locate the database for
+    /// `rotate-key`, hence `global = true` so it's accepted on either side
+    /// of a subcommand.
+    #[arg(long, global = true)]
     config: Option<PathBuf>,
+
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Re-encrypt every row under a new master key, replacing the old one.
+    ///
+    /// Reads the database path from `--config`/`LEAF_DATABASE__PATH` like a
+    /// normal run — `BRIGID_MASTER_KEY` is intentionally *not* read from the
+    /// environment for this subcommand, since both keys are needed
+    /// simultaneously and only one can live in a single env var.
+    RotateKey {
+        /// Path to a file containing the current master key (64 hex chars).
+        #[arg(long)]
+        old: PathBuf,
+        /// Path to a file containing the new master key (64 hex chars).
+        #[arg(long)]
+        new: PathBuf,
+    },
+}
+
+/// Builds the sqlx connection URL for a database path.
+fn db_url(path: &str) -> String {
+    if path == ":memory:" {
+        "sqlite::memory:".to_string()
+    } else {
+        // Use the path-only form `sqlite:{path}` rather than `sqlite://{path}`.
+        // The double-slash form is a URL where everything after `://` is
+        // host+path; for an absolute path like `/data/brigid.db` that yields
+        // `sqlite:///data/brigid.db` (three slashes) which is correct but
+        // easy to miscount as `sqlite:////…` in code review and is fragile
+        // when the path contains characters that would otherwise need URL
+        // encoding. The single-slash form is unambiguously a filename and
+        // sqlx parses it the same way for both absolute and relative paths.
+        format!("sqlite:{path}?mode=rwc")
+    }
+}
+
+/// Handles `leaf rotate-key --old <path> --new <path>`.
+async fn rotate_key(db: &config::DatabaseConfig, old_path: &Path, new_path: &Path) {
+    let old_master = MasterKey::from_file(old_path)
+        .expect("failed to read the old master key file (64 hex chars expected)");
+    let new_master = MasterKey::from_file(new_path)
+        .expect("failed to read the new master key file (64 hex chars expected)");
+
+    let mut store = EncryptedStore::new(&db_url(&db.path), old_master)
+        .await
+        .expect("failed to open or migrate database");
+
+    store
+        .rotate_master_key(new_master)
+        .await
+        .expect("key rotation failed — the transaction was rolled back, the database is unchanged");
+
+    eprintln!("✓ MASTER_KEY rotated successfully.");
+    eprintln!();
+    eprintln!("This has consequences beyond re-encrypting the database:");
+    eprintln!("  - Every user's VSID (the OIDC `sub` claim) changed for every relying party —");
+    eprintln!("    any relying party correlating users by VSID loses that continuity across");
+    eprintln!("    this rotation. There is no way to preserve it.");
+    eprintln!("  - The OIDC signing key is derived from BRIGID_MASTER_KEY, so every id_token");
+    eprintln!("    issued before this rotation is invalid now, not just after its natural expiry.");
+    eprintln!();
+    eprintln!("Update BRIGID_MASTER_KEY to the new key before starting leaf again.");
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +141,16 @@ async fn main() {
             panic!("config file not found: {}", path.display());
         }
     }
+
+    // rotate-key only ever needs the database path — extracting the full
+    // `Config` here would demand `server.domain` (required, no default) for
+    // no reason, since rotate-key never touches server/TLS/CORS settings.
+    if let Some(Command::RotateKey { old, new }) = cli.command {
+        let db = config::load_database(cli.config.as_deref()).expect("configuration error");
+        rotate_key(&db, &old, &new).await;
+        return;
+    }
+
     let cfg = config::load(cli.config.as_deref()).expect("configuration error");
 
     // -- MASTER_KEY ----------------------------------------------------------
@@ -86,21 +170,7 @@ async fn main() {
     let oidc_key = OidcSigningKey::from_raw_bytes("v1".to_string(), &oidc_raw);
 
     // -- Database ------------------------------------------------------------
-    let db_url = if cfg.database.path == ":memory:" {
-        "sqlite::memory:".to_string()
-    } else {
-        // Use the path-only form `sqlite:{path}` rather than `sqlite://{path}`.
-        // The double-slash form is a URL where everything after `://` is
-        // host+path; for an absolute path like `/data/brigid.db` that yields
-        // `sqlite:///data/brigid.db` (three slashes) which is correct but
-        // easy to miscount as `sqlite:////…` in code review and is fragile
-        // when the path contains characters that would otherwise need URL
-        // encoding. The single-slash form is unambiguously a filename and
-        // sqlx parses it the same way for both absolute and relative paths.
-        format!("sqlite:{}?mode=rwc", cfg.database.path)
-    };
-
-    let store = EncryptedStore::new(&db_url, master)
+    let store = EncryptedStore::new(&db_url(&cfg.database.path), master)
         .await
         .expect("failed to open or migrate database");
 
