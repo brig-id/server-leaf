@@ -7,12 +7,12 @@
 #   3. runtime     — distroless: leaf binary + UI static files
 #
 # Prepare the UI source before building (option A — local copy):
-#   cp -r /workspaces/web ./ui   # or: ln -sf ../web ui
+#   cp -r /workspaces/app ./ui   # or: ln -sf ../app ui
 #   docker build -t brigid/leaf:dev .
 #
 # Named-context variant (BuildKit, recommended for CI):
 #   docker buildx build \
-#     --build-context ui-src=/path/to/brig-id-web \
+#     --build-context ui-src=/path/to/brig-id-app \
 #     -t brigid/leaf:dev .
 #
 # For local development without rebuilding the image, use:
@@ -23,21 +23,30 @@
 # ---------------------------------------------------------------------------
 # Stage 1 — UI Build
 # ---------------------------------------------------------------------------
-# The `ui/` directory in the build context must contain the brig-id/web
+# The `ui/` directory in the build context must contain the brig-id/app
 # source (package.json, src/, public/, …). A placeholder `ui/.gitkeep` is
 # committed to the repo; populate it before running `docker build`.
 #
 # If no package.json is found (placeholder only), the stage creates an empty
 # dist/ so that the runtime stage still copies a valid (though empty) path.
 # In that case, set LEAF_SERVER__UI_DIST_DIR to an actual dist in production.
+#
+# The app repo depends on the private Web Awesome Pro npm registry. Pass its
+# token via a BuildKit secret mount — never a --build-arg, which would land
+# the token in the image's build history:
+#   docker buildx build --secret id=npm_token,env=WEBAWESOME_NPM_TOKEN ...
 FROM node:22-slim AS ui-builder
 WORKDIR /ui
-# Pin the pnpm version matching the web repo's packageManager field.
+# Pin the pnpm version matching the app repo's packageManager field.
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 COPY ui/ ./
-RUN if [ -f package.json ]; then \
+RUN --mount=type=secret,id=npm_token \
+    if [ -f package.json ]; then \
+      if [ -f /run/secrets/npm_token ]; then \
+        echo "//npm.cloudsmith.io/fortawesome/webawesome-pro/:_authToken=$(cat /run/secrets/npm_token)" >> /root/.npmrc; \
+      fi && \
       pnpm install --frozen-lockfile && \
       pnpm build; \
     else \
@@ -91,7 +100,6 @@ RUN apt-get update && \
 
 # Copy manifests first so dependency layers are cached separately from source.
 COPY Cargo.toml Cargo.lock ./
-COPY vendor/ ./vendor/
 
 # Build a dummy binary to cache all dependencies.
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && \
