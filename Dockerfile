@@ -63,6 +63,16 @@ FROM rust:1.88-slim@sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca43
 
 WORKDIR /build
 
+# Cap parallel codegen jobs. This is a separate BuildKit build environment
+# from the devcontainer's own shell — the devcontainer's CARGO_BUILD_JOBS
+# setting (see roots/.devcontainer/devcontainer.json) does not reach here,
+# and this workspace's dependency graph (sqlx macros, tonic/prost codegen,
+# ml-kem/ml-dsa, rustls, axum, ...) can spawn enough concurrent rustc
+# processes to exhaust a host's memory during `cargo build --release`
+# below, which is a plausible trigger for host-level instability on a
+# memory-constrained Docker Desktop setup.
+ENV CARGO_BUILD_JOBS=4
+
 # Pre-create an empty, nonroot-owned /data directory to copy into the
 # runtime stage below. The distroless image has no shell, so `RUN mkdir`
 # can't happen there — and without this, a fresh named volume mounted at
