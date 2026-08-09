@@ -24,3 +24,34 @@ jobs:
       codecov-flags: server-leaf
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  docker:
+    # Custom (not a brig-id/.github reusable workflow): validates that the
+    # production Dockerfile still builds with the real brig-id/app UI
+    # embedded (not just the ui/.gitkeep placeholder). Build-only — no
+    # registry destination has been decided yet, so this doesn't push.
+    name: Docker build (leaf + app UI embedded)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout server-leaf
+        uses: actions/checkout@v7
+
+      - name: Checkout app (Qwik UI)
+        uses: actions/checkout@v7
+        with:
+          repository: brig-id/app
+          ref: main
+          path: ui
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          secrets: |
+            npm_token=${{ secrets.WEBAWESOME_NPM_TOKEN }}
