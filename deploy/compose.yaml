@@ -27,14 +27,14 @@ services:
   # --------------------------------------------------------------------------
   leaf:
     # Pin to an immutable image digest in production. Floating tags
-    # (`brigid/leaf:latest`) can move under your feet during `docker compose
+    # (`ghcr.io/brig-id/leaf:latest`) can move under your feet during `docker compose
     # pull`, silently introducing an upgrade or downgrade. `${LEAF_IMAGE:?...}`
     # forces operators to set the variable explicitly to a pinned reference,
     # e.g.
-    #   LEAF_IMAGE=brigid/leaf:vX.Y.Z@sha256:<64-hex>
+    #   LEAF_IMAGE=ghcr.io/brig-id/leaf:vX.Y.Z@sha256:<64-hex>
     # Docker Compose refuses to start the stack when the variable is unset,
     # so a stale or floating `:latest` can never be deployed by accident.
-    image: ${LEAF_IMAGE:?set LEAF_IMAGE to a pinned image digest (e.g. brigid/leaf:vX.Y.Z@sha256:<64-hex>)}
+    image: ${LEAF_IMAGE:?set LEAF_IMAGE to a pinned image digest (e.g. ghcr.io/brig-id/leaf:vX.Y.Z@sha256:<64-hex>)}
     restart: unless-stopped
     read_only: true
     tmpfs:
