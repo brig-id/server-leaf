@@ -42,7 +42,11 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: brig-id/app
-          ref: main
+          # Pinned so the UI embedded in the leaf image is reproducible: a
+          # floating `main` means two builds of the same server-leaf commit
+          # could embed different UI code depending on when they ran. Bump
+          # deliberately when app ships a change meant to land in leaf.
+          ref: 4fe2ea9cf04fa6d0f75865d14f38b99c969898f7 # main @ 2026-09-03
           path: ui
 
       - name: Set up Docker Buildx
