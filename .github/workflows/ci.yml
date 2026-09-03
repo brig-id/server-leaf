@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [dev, main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -57,5 +58,53 @@ jobs:
         with:
           context: .
           push: false
+
+  # Runs only on a `vX.Y.Z` tag push — the actual release artifact. Separate
+  # from the `docker` validation job above (which stays fast, single-arch,
+  # build-only) so every PR/branch push doesn't publish an image.
+  docker-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Docker release (build + push, multi-arch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout server-leaf
+        uses: actions/checkout@v7
+
+      - name: Checkout app (Qwik UI)
+        uses: actions/checkout@v7
+        with:
+          repository: brig-id/app
+          # Same pin as the validation job above — keep both in sync when
+          # bumping. Once app/core/crypto have their own tagged releases,
+          # this should point at the app tag that belongs to this leaf
+          # release rather than a bare commit.
+          ref: 4fe2ea9cf04fa6d0f75865d14f38b99c969898f7 # main @ 2026-09-03
+          path: ui
+
+      - name: Set up QEMU (cross-arch emulation for the arm64 build)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
           secrets: |
             npm_token=${{ secrets.WEBAWESOME_NPM_TOKEN }}
+          tags: |
+            ghcr.io/brig-id/leaf:${{ github.ref_name }}
+            ghcr.io/brig-id/leaf:latest
