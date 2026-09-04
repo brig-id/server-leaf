@@ -7,8 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-First tagged release, targeting `v0.1.0` alongside `crypto`, `core`, and
-`web`.
+## [0.1.0] - 2026-09-04
+
+First tagged release, alongside `crypto`, `core`, and `app`.
 
 ### Added
 
