@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-04
+
+### Fixed
+
+- `Dockerfile`'s `gcr.io/distroless/cc-debian12` base and `deploy/compose.yaml`'s
+  `caddy:2-alpine` image were both pinned to single-platform (amd64) manifest
+  digests instead of the multi-arch index, so the arm64 leg of the multi-arch
+  release build silently used amd64 base content — `leaf` crashed with
+  `exec: no such file or directory` (missing aarch64 interpreter) and `caddy`
+  with `exec format error` on arm64 hosts (found deploying to an Oracle
+  Ampere A1 instance). Re-pinned to the correct index digests.
+- `deploy/compose.yaml` never actually worked under `docker stack deploy`
+  despite declaring a Swarm-only `secrets: external: true` — fixed
+  `networks.internal.driver` (`bridge` → `overlay`, required for Swarm
+  services) and `caddy.depends_on`'s long form (rejected by Swarm's stack
+  schema) to the short list form.
+
 ## [0.1.0] - 2026-09-04
 
 First tagged release, alongside `crypto`, `core`, and `app`.
