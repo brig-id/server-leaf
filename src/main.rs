@@ -165,9 +165,17 @@ async fn main() {
     let cfg = config::load(cli.config.as_deref()).expect("configuration error");
 
     // -- MASTER_KEY ----------------------------------------------------------
-    // Must come from the environment — never from the config file.
-    let master = MasterKey::from_env()
-        .expect("BRIGID_MASTER_KEY (or BRIGID_MASTER_KEY_FILE) must be set to a 64-character hex string (32 bytes)");
+    // Must come from the environment or a Docker-secrets file — never from
+    // the config file. BRIGID_MASTER_KEY_FILE takes precedence so a mounted
+    // secret (see deploy/compose.yaml) is preferred over a plaintext env var
+    // when both happen to be present.
+    let master = match std::env::var_os("BRIGID_MASTER_KEY_FILE") {
+        Some(path) => MasterKey::from_file(Path::new(&path)).expect(
+            "BRIGID_MASTER_KEY_FILE must point to a file containing a 64-character hex string (32 bytes)",
+        ),
+        None => MasterKey::from_env()
+            .expect("BRIGID_MASTER_KEY (or BRIGID_MASTER_KEY_FILE) must be set to a 64-character hex string (32 bytes)"),
+    };
 
     // Derive VSID salt before master is moved into the store.
     let vsid_salt = derive_vsid_salt(&master);
