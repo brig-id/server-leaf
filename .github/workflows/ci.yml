@@ -58,6 +58,8 @@ jobs:
         with:
           context: .
           push: false
+          secrets: |
+            npm_token=${{ secrets.WEBAWESOME_NPM_TOKEN }}
 
   # Runs only on a `vX.Y.Z` tag push — the actual release artifact. Separate
   # from the `docker` validation job above (which stays fast, single-arch,
