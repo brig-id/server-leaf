@@ -19,7 +19,7 @@ volumes:
 
 networks:
   internal:
-    driver: bridge
+    driver: overlay
 
 services:
   # --------------------------------------------------------------------------
@@ -85,7 +85,14 @@ services:
     # so production deployments don't roll forward to a new Caddy minor
     # whenever the upstream tag is republished. Refresh together with the
     # human-readable tag when upgrading Caddy.
-    image: caddy:2-alpine@sha256:3739ea4f0c877259a693d932693cf8f3408e9a9497c004f031b0e830e93e1546
+    #
+    # Must be the multi-arch index digest, not a single-platform manifest —
+    # the previous pin (sha256:3739ea4f...) resolved to amd64 only, which
+    # ran fine on x86 hosts but crashed with "exec format error" on arm64
+    # (Oracle Ampere A1). Verify with `docker manifest inspect
+    # caddy:2-alpine@sha256:<digest>` and check the top-level "mediaType"
+    # is an image index before trusting a re-pin.
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     restart: unless-stopped
     environment:
       # Caddy's `{$BRIGID_DOMAIN}` substitution reads from this container's
@@ -102,5 +109,4 @@ services:
     networks:
       - internal
     depends_on:
-      leaf:
-        condition: service_started
+      - leaf

@@ -132,7 +132,16 @@ RUN touch src/main.rs src/lib.rs && \
 # variant ships `libssl3`/`libcrypto3` matching the `rust:1.88-slim` builder
 # above (see the libssl comment), so the dynamically-linked binary loads
 # cleanly. Re-pin whenever the runtime base is refreshed.
-FROM gcr.io/distroless/cc-debian12@sha256:5882a8b7d32186f9366147e7d6908c0628db04675476caf7afe3d5794cb6e1b6 AS runtime
+#
+# This MUST be the multi-arch index digest (mediaType
+# application/vnd.oci.image.index.v1+json), not a single-platform manifest
+# digest — pinning the latter silently locks this FROM to one architecture
+# regardless of `--platform` during a multi-arch buildx build, so an arm64
+# leaf binary gets copied into an amd64 base and fails at container start
+# with "exec: no such file or directory" (missing aarch64 interpreter).
+# Verify with: docker manifest inspect gcr.io/distroless/cc-debian12@sha256:<digest>
+# and check "mediaType" at the top level before trusting a re-pin.
+FROM gcr.io/distroless/cc-debian12@sha256:e5d81ddde149641e2a9ba55be4545bc125c67de07508b03ba4c22e6eb0ded5aa AS runtime
 
 # Copy the compiled binary from the Rust build stage.
 COPY --from=rust-builder /build/target/release/leaf /leaf
