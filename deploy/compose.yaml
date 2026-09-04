@@ -36,6 +36,17 @@ services:
     # so a stale or floating `:latest` can never be deployed by accident.
     image: ${LEAF_IMAGE:?set LEAF_IMAGE to a pinned image digest (e.g. ghcr.io/brig-id/leaf:vX.Y.Z@sha256:<64-hex>)}
     restart: unless-stopped
+    # `restart:` above is plain-Compose-only and silently ignored under
+    # `docker stack deploy` (Swarm mode, required by the `overlay` network
+    # below). Without an explicit `deploy.restart_policy`, Swarm falls back
+    # to its own default — infinite retries every ~5s — so a bad image or
+    # config crash-loops forever instead of failing loudly. Bound it.
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 300s
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777
@@ -94,6 +105,14 @@ services:
     # is an image index before trusting a re-pin.
     image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     restart: unless-stopped
+    # See the `leaf` service above — `restart:` alone does nothing under
+    # `docker stack deploy`; this is what actually bounds retries in Swarm.
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 300s
     environment:
       # Caddy's `{$BRIGID_DOMAIN}` substitution reads from this container's
       # environment — the variable must be propagated explicitly from the host.
