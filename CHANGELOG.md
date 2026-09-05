@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-05
+
+### Fixed
+
+- `deploy/compose.yaml`'s `restart: unless-stopped` is plain-Compose-only and
+  silently ignored under `docker stack deploy` (Swarm mode); with no
+  `deploy.restart_policy`, Swarm fell back to infinite retries every ~5s, so
+  a broken deploy crash-looped forever instead of failing loudly. Added a
+  bounded `restart_policy` (5 attempts, 5min window) to `leaf` and `caddy`.
+- `main.rs` only ever called `MasterKey::from_env()`, never
+  `MasterKey::from_file()`, even though `deploy/compose.yaml`'s Docker
+  secrets setup (`BRIGID_MASTER_KEY_FILE`) — the only production path
+  allowed by this repo's hard security constraints — depended on it. Every
+  Docker-secrets deployment failed at startup with "master key environment
+  variable not set". `BRIGID_MASTER_KEY_FILE` now takes precedence when set.
+
 ## [0.1.1] - 2026-09-04
 
 ### Fixed
