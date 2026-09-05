@@ -66,13 +66,18 @@ pub fn apply_ui_fallback(router: Router, dist: Option<&Path>) -> Router {
             // never becomes interactive. `fonts.bunny.net` is the actual
             // external font host `web` loads from. See the backlog entry for
             // the real fix (build-time hash allowlist).
+            // img-src/connect-src additionally allow Unsplash: the login/
+            // register pages fetch a daily background photo directly from
+            // the browser (app/src/lib/unsplash.ts) — there's no app-side
+            // server to proxy it through, this binary serves the UI as
+            // static files.
             HeaderValue::from_static(
                 "default-src 'self'; \
                  script-src 'self' 'unsafe-inline'; \
                  style-src 'self' 'unsafe-inline' https://fonts.bunny.net; \
-                 img-src 'self' data:; \
+                 img-src 'self' data: https://images.unsplash.com; \
                  font-src 'self' https://fonts.bunny.net; \
-                 connect-src 'self'; \
+                 connect-src 'self' https://api.unsplash.com; \
                  frame-ancestors 'none'; \
                  object-src 'none'; \
                  base-uri 'self'",
