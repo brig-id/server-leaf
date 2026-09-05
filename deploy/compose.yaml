@@ -61,6 +61,11 @@ services:
       LEAF_SERVER__PUBLIC_URL: "https://${BRIGID_DOMAIN:?BRIGID_DOMAIN must be set}"
       LEAF_SERVER__HOST: "0.0.0.0"
       LEAF_SERVER__PORT: "8080"
+      # Must match the Dockerfile's COPY destination for the pre-built Qwik
+      # UI (`COPY --from=ui-builder /ui/dist /ui/dist`). Without this, the
+      # binary's ui_dist_dir config stays unset and apply_ui_fallback()
+      # never serves any static files — every non-API route 404s.
+      LEAF_SERVER__UI_DIST_DIR: "/ui/dist"
       LEAF_DATABASE__PATH: "/data/brigid.db"
       # Single-quoted so the embedded `["..."]` JSON-style brackets and
       # double quotes pass through to figment verbatim — Compose still
