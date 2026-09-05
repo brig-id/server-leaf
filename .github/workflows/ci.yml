@@ -107,6 +107,11 @@ jobs:
           platforms: linux/amd64,linux/arm64
           secrets: |
             npm_token=${{ secrets.WEBAWESOME_NPM_TOKEN }}
+          # UNSPLASH_ACCESS_KEY is a plain build-arg, not a --secret: it's
+          # meant to end up in the built JS bundle (see the Dockerfile
+          # comment on the ui-builder stage), unlike npm_token above.
+          build-args: |
+            UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
           tags: |
             ghcr.io/brig-id/leaf:${{ github.ref_name }}
             ghcr.io/brig-id/leaf:latest
