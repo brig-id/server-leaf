@@ -31,6 +31,13 @@ jobs:
     # production Dockerfile still builds with the real brig-id/app UI
     # embedded (not just the ui/.gitkeep placeholder). Build-only — no
     # registry destination has been decided yet, so this doesn't push.
+    #
+    # GitHub withholds Actions secrets from workflow runs triggered by
+    # Dependabot, so the "Checkout app (Qwik UI)" step below is skipped for
+    # those runs — the UI stage falls back to the committed ui/.gitkeep
+    # placeholder instead of failing on the missing npm_token. The real UI
+    # build still runs on every push to main/dev/* once a dependabot PR is
+    # merged, so coverage isn't lost, only deferred past the PR.
     name: Docker build (leaf + app UI embedded)
     runs-on: ubuntu-latest
     permissions:
@@ -40,6 +47,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Checkout app (Qwik UI)
+        if: github.actor != 'dependabot[bot]'
         uses: actions/checkout@v7
         with:
           repository: brig-id/app
