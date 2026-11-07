@@ -5,6 +5,8 @@
     "config",
     "docker",
     "ci",
-    "deps"
+    "deps",
+    "ai",
+    "docs"
   ]
 }
