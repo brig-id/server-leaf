@@ -4,8 +4,11 @@
 # Caddy handles TLS termination automatically (Let's Encrypt).
 #
 # Usage:
-#   docker secret create brigid_master_key <(echo -n "$BRIGID_MASTER_KEY")
+#   deploy/load-secrets.sh   # creates brigid_master_key from OpenBao (deploy/OPENBAO.md)
 #   docker compose -f deploy/compose.yaml up -d
+#
+# Without OpenBao, create the secret by hand instead:
+#   docker secret create brigid_master_key <(echo -n "$BRIGID_MASTER_KEY")
 
 secrets:
   brigid_master_key:
