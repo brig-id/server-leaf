@@ -3,7 +3,7 @@
 #
 # Creates the `brigid_master_key` Docker secret that deploy/compose.yaml expects,
 # reading the value from OpenBao (KV v2) instead of a human pasting it by hand.
-# Needs only bash, curl and jq on the host: no bao/vault CLI.
+# Needs only bash, curl and jq on the VM: no bao/vault CLI.
 #
 # Usage (on the Swarm manager, before `docker stack deploy`):
 #   deploy/load-secrets.sh           # create the Docker secret if it is missing
@@ -16,7 +16,7 @@
 #                                      and /etc/brigid/bao-secret-id)
 #
 # Settings (environment, all optional):
-#   BAO_ADDR     https://bao.baxyz.dev:8200 (on the tailnet only: the host must run Tailscale)
+#   BAO_ADDR     https://bao.baxyz.dev:8200 (on the tailnet only: the VM must run Tailscale)
 #   BAO_MOUNT    kv
 #   BAO_PATH     prod/brig-id/leaf-1
 #   BAO_FIELD    BRIGID_MASTER_KEY
