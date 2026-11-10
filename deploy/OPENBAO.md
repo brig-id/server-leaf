@@ -16,18 +16,26 @@ master key lives in one place and a rebuilt host gets it back without anyone pas
 
 In the Tailscale admin console:
 
-1. Access controls: declare the tag and let the host reach OpenBao, and nothing else:
+1. Access controls: declare the tag and let the host reach OpenBao, and nothing else. The
+   tag names the org (the tailnet is shared with other projects) and the role, so a future
+   second leaf reuses it; the per-machine restriction is the AppRole's CIDR binding below.
+   `dst` takes an IP or a `hosts` alias, not a bare machine name: without the `hosts` entry
+   the editor rejects the policy (`"fajro": invalid address`).
 
    ```jsonc
-   "tagOwners": { "tag:leaf": ["autogroup:admin"] },
+   "tagOwners": { "tag:brigid-leaf": ["autogroup:admin"] },
+   // The tailnet IP of the machine serving OpenBao (what bao.baxyz.dev resolves to).
+   "hosts":     { "fajro": "100.67.31.127" },
    "grants": [
-     // <openbao-host>: the machine name or tag of the host serving OpenBao
-     { "src": ["tag:leaf"], "dst": ["<openbao-host>"], "ip": ["tcp:8200"] }
+     { "src": ["tag:brigid-leaf"], "dst": ["fajro"], "ip": ["tcp:8200"] }
+   ],
+   "tests": [
+     { "src": "tag:brigid-leaf", "accept": ["fajro:8200"], "deny": ["fajro:22"] }
    ]
    ```
 
 2. Settings → Keys → Generate auth key: not reusable, not ephemeral, pre-approved,
-   tag `tag:leaf`. Tagged nodes have key expiry off, so the host stays connected.
+   tag `tag:brigid-leaf`. Tagged nodes have key expiry off, so the host stays connected.
 
 On the host:
 
