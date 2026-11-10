@@ -1,22 +1,22 @@
 # Production secrets from OpenBao
 
 `deploy/load-secrets.sh` creates the `brigid_master_key` Docker secret from OpenBao, so the
-master key lives in one place and a rebuilt host gets it back without anyone pasting it.
+master key lives in one place and a rebuilt VM gets it back without anyone pasting it.
 
 | What | Where |
 | ---- | ----- |
 | OpenBao | `https://bao.baxyz.dev:8200`, reachable on the tailnet only |
 | Secret | KV v2 mount `kv`, path `prod/brig-id/leaf-1` |
 | Fields | `BRIGID_MASTER_KEY` (64 hex), `ORACLE_CLOUD_PUBLIC_IP`, `ORACLE_CLOUD_PRIVATE_IP` |
-| Host credentials | AppRole `leaf-1`, files `/etc/brigid/bao-role-id` and `/etc/brigid/bao-secret-id` |
+| VM credentials | AppRole `leaf-1`, files `/etc/brigid/bao-role-id` and `/etc/brigid/bao-secret-id` |
 
 ## One-time setup
 
-### 1. Join the host to the tailnet
+### 1. Join the leaf-1 VM to the tailnet
 
 In the Tailscale admin console:
 
-1. Access controls: declare the tag and let the host reach OpenBao, and nothing else. The
+1. Access controls: declare the tag and let the leaf-1 VM reach OpenBao, and nothing else. The
    tag names the org (the tailnet is shared with other projects) and the role, so a future
    second leaf reuses it; the per-machine restriction is the AppRole's CIDR binding below.
    `dst` takes an IP or a `hosts` alias, not a bare machine name: without the `hosts` entry
@@ -35,13 +35,13 @@ In the Tailscale admin console:
    ```
 
 2. Settings → Keys → Generate auth key: not reusable, not ephemeral, pre-approved,
-   tag `tag:brigid-leaf`. Tagged nodes have key expiry off, so the host stays connected.
+   tag `tag:brigid-leaf`. Tagged nodes have key expiry off, so the VM stays connected.
 
-On the host:
+On the leaf-1 VM (`ssh ubuntu@helm.brig.id`):
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
-# --accept-dns=false: bao.baxyz.dev is in public DNS, and Docker keeps the host's resolver
+# --accept-dns=false: bao.baxyz.dev is in public DNS, and Docker keeps the VM's resolver
 sudo tailscale up --auth-key=tskey-auth-... --hostname=brigid-leaf-1 --accept-dns=false
 tailscale ip -4                                    # note it for the AppRole below
 curl -sS https://bao.baxyz.dev:8200/v1/sys/health  # must answer
@@ -49,16 +49,16 @@ curl -sS https://bao.baxyz.dev:8200/v1/sys/health  # must answer
 
 No inbound port is needed: Tailscale connects outbound (UDP 41641, or HTTPS relays).
 
-### 2. AppRole for the host
+### 2. AppRole for the leaf-1 VM
 
-On a machine with an OpenBao admin token:
+On fajro, the machine that serves OpenBao (or any machine with an OpenBao admin token):
 
 ```bash
 bao policy write leaf-1 - <<'EOF'
 path "kv/data/prod/brig-id/leaf-1" { capabilities = ["read"] }
 EOF
 
-# Replace 100.x.y.z with the host's tailnet IP.
+# Replace 100.x.y.z with the VM's tailnet IP.
 bao write auth/approle/role/leaf-1 \
   token_policies=leaf-1 token_ttl=5m token_max_ttl=10m \
   secret_id_bound_cidrs=100.x.y.z/32 token_bound_cidrs=100.x.y.z/32
@@ -70,7 +70,7 @@ bao write -f -field=secret_id auth/approle/role/leaf-1/secret-id
 Note the policy names the secret's own path: `prod/brig-id/leaf-1/*` would match only paths
 below it, not the secret itself.
 
-On the host, store both values, readable by root only:
+On the leaf-1 VM, store both values, readable by root only:
 
 ```bash
 sudo install -d -m 700 /etc/brigid
