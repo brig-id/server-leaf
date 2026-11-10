@@ -43,7 +43,7 @@ On the leaf-1 VM (`ssh ubuntu@helm.brig.id`):
 curl -fsSL https://tailscale.com/install.sh | sh
 # --accept-dns=false: bao.baxyz.dev is in public DNS, and Docker keeps the VM's resolver
 sudo tailscale up --auth-key=tskey-auth-... --hostname=brigid-leaf-1 --accept-dns=false
-tailscale ip -4                                    # note it for the AppRole below
+tailscale ip -4                                    # the VM's tailnet IP, used in step 2
 curl -sS https://bao.baxyz.dev:8200/v1/sys/health  # must answer
 ```
 
@@ -58,14 +58,17 @@ bao policy write leaf-1 - <<'EOF'
 path "kv/data/prod/brig-id/leaf-1" { capabilities = ["read"] }
 EOF
 
-# Replace 100.x.y.z with the VM's tailnet IP.
+VM_IP=...   # the output of `tailscale ip -4` on the VM, e.g. 100.64.0.1
 bao write auth/approle/role/leaf-1 \
   token_policies=leaf-1 token_ttl=5m token_max_ttl=10m \
-  secret_id_bound_cidrs=100.x.y.z/32 token_bound_cidrs=100.x.y.z/32
+  secret_id_bound_cidrs="$VM_IP/32" token_bound_cidrs="$VM_IP/32"
 
 bao read -field=role_id auth/approle/role/leaf-1/role-id
 bao write -f -field=secret_id auth/approle/role/leaf-1/secret-id
 ```
+
+The bindings match the address OpenBao sees: run the script on the VM itself, not from a
+container, whose traffic may not carry the tailnet IP.
 
 Note the policy names the secret's own path: `prod/brig-id/leaf-1/*` would match only paths
 below it, not the secret itself.
@@ -78,16 +81,28 @@ sudo sh -c 'umask 077; cat > /etc/brigid/bao-role-id'    # paste, then Ctrl-D
 sudo sh -c 'umask 077; cat > /etc/brigid/bao-secret-id'  # paste, then Ctrl-D
 ```
 
-### 3. Check
+### 3. Get the script onto the VM
+
+The VM has no checkout of this repository. Fetch the script and compare it with the version
+you reviewed (`sha256sum deploy/load-secrets.sh` in a checkout):
 
 ```bash
-sudo deploy/load-secrets.sh --check
+curl -fsSLo load-secrets.sh \
+  https://raw.githubusercontent.com/brig-id/server-leaf/main/deploy/load-secrets.sh
+sha256sum load-secrets.sh
+chmod +x load-secrets.sh
+```
+
+### 4. Check
+
+```bash
+sudo ./load-secrets.sh --check
 ```
 
 ## On every deployment
 
 ```bash
-sudo deploy/load-secrets.sh   # creates the Docker secret only if it is missing
+sudo ./load-secrets.sh   # creates the Docker secret only if it is missing
 ```
 
 The script leaves an existing secret alone: Swarm secrets cannot change while a service uses
