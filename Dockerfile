@@ -68,7 +68,7 @@ RUN --mount=type=secret,id=npm_token \
 # Pin the builder image to an immutable digest so rebuilds are deterministic
 # and supply-chain risk from upstream tag movement is bounded. Bump the
 # digest together with the human-readable tag when upgrading Rust.
-FROM rust:1.88-slim@sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89 AS rust-builder
+FROM rust:1.89-slim@sha256:8cffb8fe4e8a95cf0d6a2060375e5a28aff4c752155aa9f1f9193530769bdf66 AS rust-builder
 
 WORKDIR /build
 
