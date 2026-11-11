@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [main, "dev/*"]
 
+# Least privilege by default; the release job widens it for itself.
+permissions:
+  contents: read
+
 jobs:
   ci:
     uses: brig-id/.github/.github/workflows/ci-rust.yml@26e9a0393cb98cdb4f25e4d10f155230fb4db6f5
@@ -44,12 +48,15 @@ jobs:
       contents: read
     steps:
       - name: Checkout server-leaf
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Checkout app (Qwik UI)
         if: github.actor != 'dependabot[bot]'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: brig-id/app
           # Pinned so the UI embedded in the leaf image is reproducible: a
           # floating `main` means two builds of the same server-leaf commit
@@ -59,10 +66,10 @@ jobs:
           path: ui
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Build image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           push: false
@@ -81,11 +88,21 @@ jobs:
       packages: write
     steps:
       - name: Checkout server-leaf
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history, so the step below can tell whether the tag is on main.
+          fetch-depth: 0
+
+      - name: Refuse a tag that is not on main
+        # The VM deploys the highest vX.Y.Z image on its own: a release must
+        # only ever be built from a commit that went through main.
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
 
       - name: Checkout app (Qwik UI)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           repository: brig-id/app
           # Same pin as the validation job above — keep both in sync when
           # bumping. Once app/core/crypto have their own tagged releases,
@@ -95,20 +112,20 @@ jobs:
           path: ui
 
       - name: Set up QEMU (cross-arch emulation for the arm64 build)
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           push: true
