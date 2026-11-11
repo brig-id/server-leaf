@@ -399,7 +399,7 @@ dependencies = [
 [[package]]
 name = "brigid-api"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4a9ab443afceb21206d66226528747cdb3cefbc8#4a9ab443afceb21206d66226528747cdb3cefbc8"
+source = "git+https://github.com/brig-id/core?rev=1542e7220a392e81cd0cb655871503ac4e95083e#1542e7220a392e81cd0cb655871503ac4e95083e"
 dependencies = [
  "axum",
  "brigid-did",
@@ -445,37 +445,33 @@ dependencies = [
 [[package]]
 name = "brigid-did"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4a9ab443afceb21206d66226528747cdb3cefbc8#4a9ab443afceb21206d66226528747cdb3cefbc8"
+source = "git+https://github.com/brig-id/core?rev=1542e7220a392e81cd0cb655871503ac4e95083e#1542e7220a392e81cd0cb655871503ac4e95083e"
 dependencies = [
  "bs58",
- "reqwest 0.12.28",
  "serde",
- "serde_json",
  "thiserror 2.0.21",
- "tokio",
- "url",
 ]
 
 [[package]]
 name = "brigid-identity"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4a9ab443afceb21206d66226528747cdb3cefbc8#4a9ab443afceb21206d66226528747cdb3cefbc8"
+source = "git+https://github.com/brig-id/core?rev=1542e7220a392e81cd0cb655871503ac4e95083e#1542e7220a392e81cd0cb655871503ac4e95083e"
 dependencies = [
  "base64ct",
  "brigid-crypto",
- "bs58",
  "helpers4",
  "hkdf 0.13.0",
  "serde",
  "sha3 0.11.0",
  "thiserror 2.0.21",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]
 name = "brigid-oidc"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4a9ab443afceb21206d66226528747cdb3cefbc8#4a9ab443afceb21206d66226528747cdb3cefbc8"
+source = "git+https://github.com/brig-id/core?rev=1542e7220a392e81cd0cb655871503ac4e95083e#1542e7220a392e81cd0cb655871503ac4e95083e"
 dependencies = [
  "base64ct",
  "brigid-identity",
@@ -496,7 +492,7 @@ dependencies = [
 [[package]]
 name = "brigid-store"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4a9ab443afceb21206d66226528747cdb3cefbc8#4a9ab443afceb21206d66226528747cdb3cefbc8"
+source = "git+https://github.com/brig-id/core?rev=1542e7220a392e81cd0cb655871503ac4e95083e#1542e7220a392e81cd0cb655871503ac4e95083e"
 dependencies = [
  "brigid-crypto",
  "brigid-identity",
@@ -512,7 +508,7 @@ dependencies = [
 [[package]]
 name = "brigid-webauthn"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4a9ab443afceb21206d66226528747cdb3cefbc8#4a9ab443afceb21206d66226528747cdb3cefbc8"
+source = "git+https://github.com/brig-id/core?rev=1542e7220a392e81cd0cb655871503ac4e95083e#1542e7220a392e81cd0cb655871503ac4e95083e"
 dependencies = [
  "brigid-crypto",
  "brigid-identity",
@@ -1682,7 +1678,6 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tower-service",
- "webpki-roots 1.0.12",
 ]
 
 [[package]]
@@ -2024,7 +2019,7 @@ dependencies = [
  "figment",
  "http-body-util",
  "jsonwebtoken 10.3.0",
- "reqwest 0.13.5",
+ "reqwest",
  "rustls",
  "serde",
  "serde_json",
@@ -2853,44 +2848,6 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
-
-[[package]]
-name = "reqwest"
-version = "0.12.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "futures-core",
- "http",
- "http-body",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "js-sys",
- "log",
- "percent-encoding",
- "pin-project-lite",
- "quinn",
- "rustls",
- "rustls-pki-types",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sync_wrapper",
- "tokio",
- "tokio-rustls",
- "tower",
- "tower-http 0.6.11",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "webpki-roots 1.0.12",
-]
 
 [[package]]
 name = "reqwest"

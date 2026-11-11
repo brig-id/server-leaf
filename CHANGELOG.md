@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Account recovery with a recovery code (`/account/recovery-code`,
+  `/auth/recovery/*`), passkey-only signup with a generated, hidden username
+  that signs in in the same ceremony, from brig-id/core#78.
+
+### Changed
+
+- Identities and accounts are identified by UUIDs (ADR-007): the database
+  migration drops the account and identity DID columns, and VSIDs are derived
+  from the identity UUID. **Account sessions issued before the upgrade end:
+  users sign in again.** No relying party holds a VSID yet.
+
 ### Changed
 
 - `core` update: generic code comes from helpers4. Three checks are stricter:
