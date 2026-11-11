@@ -48,6 +48,7 @@ port   = 8080
 domain = "example.com"   # RP ID (WebAuthn) + issuer (OIDC)
 tls_cert = "/certs/cert.pem"
 tls_key  = "/certs/key.pem"
+metrics_port = 9100      # optional: internal Prometheus listener (GET /metrics)
 
 [database]
 path = "/data/brigid.db"
@@ -112,6 +113,8 @@ cargo build --release -p leaf
 docker build -t brigid/leaf .
 docker compose -f deploy/compose.dev.yaml up
 curl http://localhost:8080/health
+leaf healthcheck                     # liveness probe (Docker HEALTHCHECK), exit 0/1
+curl http://localhost:9100/metrics   # when server.metrics_port = 9100
 ```
 
 ## Local dev without Docker (paired with `web`'s HTTPS setup)

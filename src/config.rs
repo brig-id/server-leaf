@@ -72,6 +72,12 @@ pub struct ServerConfig {
     /// Omit or leave unset to disable static file serving (API-only mode).
     #[serde(default)]
     pub ui_dist_dir: Option<PathBuf>,
+
+    /// Port of the internal Prometheus listener (`GET /metrics`), on the same
+    /// host as the main listener. Unset: no metrics listener. Never publish
+    /// this port; scrape it from the internal network only.
+    #[serde(default)]
+    pub metrics_port: Option<u16>,
 }
 
 /// Database settings.

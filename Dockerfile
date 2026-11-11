@@ -169,4 +169,9 @@ USER nonroot:nonroot
 
 EXPOSE 8080
 
+# Liveness: the binary probes its own /health (distroless has no shell or
+# curl). Exec form, so no shell is needed. Swarm restarts an unhealthy task.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["/leaf", "healthcheck"]
+
 ENTRYPOINT ["/leaf"]

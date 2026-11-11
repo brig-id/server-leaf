@@ -169,3 +169,79 @@ fn port_already_in_use_fails_with_clear_message() {
         "stderr should clearly indicate the port conflict, got: {stderr}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// `leaf healthcheck` (Docker HEALTHCHECK) and the internal metrics listener
+// ---------------------------------------------------------------------------
+
+fn http_get(addr: SocketAddr, path: &str) -> String {
+    use std::io::{Read, Write};
+    let mut s = std::net::TcpStream::connect(addr).expect("connect");
+    write!(
+        s,
+        "GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+    )
+    .unwrap();
+    let mut out = String::new();
+    s.read_to_string(&mut out).unwrap();
+    out
+}
+
+#[test]
+fn healthcheck_fails_when_nothing_listens() {
+    let status = Command::new(leaf_bin())
+        .args(["healthcheck", "--port", &free_port().to_string()])
+        .stderr(Stdio::null())
+        .status()
+        .expect("run healthcheck");
+    assert_eq!(status.code(), Some(1));
+}
+
+#[test]
+fn healthcheck_passes_and_metrics_count_requests() {
+    let port = free_port();
+    let metrics_port = free_port();
+    let mut child = Command::new(leaf_bin())
+        .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
+        .env("LEAF_SERVER__DOMAIN", "localhost")
+        .env("LEAF_SERVER__HOST", "127.0.0.1")
+        .env("LEAF_SERVER__PORT", port.to_string())
+        .env("LEAF_SERVER__METRICS_PORT", metrics_port.to_string())
+        .env("LEAF_DATABASE__PATH", ":memory:")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn leaf");
+    let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+    let metrics_addr: SocketAddr = format!("127.0.0.1:{metrics_port}").parse().unwrap();
+    assert!(wait_until_listening(addr, Duration::from_secs(5)));
+    assert!(wait_until_listening(metrics_addr, Duration::from_secs(5)));
+
+    // The probe reads the port from the same variable as the server.
+    let status = Command::new(leaf_bin())
+        .arg("healthcheck")
+        .env("LEAF_SERVER__PORT", port.to_string())
+        .status()
+        .expect("run healthcheck");
+
+    let _ = http_get(addr, "/health");
+    let metrics = http_get(metrics_addr, "/metrics");
+    // /metrics is not on the public listener.
+    let public = http_get(addr, "/metrics");
+
+    child.kill().ok();
+    child.wait().ok();
+
+    assert_eq!(
+        status.code(),
+        Some(0),
+        "healthcheck must pass on a live leaf"
+    );
+    assert!(metrics.starts_with("HTTP/1.1 200"), "{metrics}");
+    assert!(
+        metrics
+            .contains("leaf_http_requests_total{method=\"GET\",route=\"/health\",status=\"200\"}"),
+        "{metrics}"
+    );
+    assert!(!public.contains("leaf_http_requests_total"));
+}

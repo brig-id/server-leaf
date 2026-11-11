@@ -1,3 +1,6 @@
+pub mod metrics;
+pub mod probe;
+
 use std::path::Path;
 
 use axum::Router;

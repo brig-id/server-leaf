@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `leaf healthcheck`: the binary probes its own `/health` (exit 0 on 200, 1
+  otherwise), so the distroless image gets a Docker `HEALTHCHECK` without a
+  shell or curl. The image and `deploy/compose.yaml` use it; Swarm now sees a
+  crash-looping or hung leaf as unhealthy instead of only Caddy's 502s.
+- `server.metrics_port` (`LEAF_SERVER__METRICS_PORT`): an internal listener
+  serving Prometheus metrics at `/metrics` (request counts by method, matched
+  route and status; latency histograms). Off by default; port 9100 on the
+  internal overlay network in `deploy/compose.yaml`, never published.
+
 ## [0.1.2] - 2026-09-05
 
 ### Fixed
