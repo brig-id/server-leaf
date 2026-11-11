@@ -82,7 +82,9 @@ async fn rotate_key_cli_round_trip_login_works_with_new_key() {
     let begin: serde_json::Value = resp.json().await.unwrap();
     let ccr: CreationChallengeResponse =
         serde_json::from_value(begin["challenge"].clone()).unwrap();
-    let credential = auth_client.do_registration(origin.clone(), ccr).unwrap();
+    let credential = auth_client
+        .do_registration(origin.clone(), for_soft_passkey(ccr))
+        .unwrap();
     let resp = client
         .post(format!("{base_url}/auth/register/finish"))
         .json(&json!({ "session_id": begin["session_id"], "credential": credential }))
@@ -175,4 +177,22 @@ async fn sign_in_and_read_sub(
     let claims: jsonwebtoken::TokenData<serde_json::Value> =
         jsonwebtoken::dangerous::insecure_decode(token).expect("id_token should decode as a JWT");
     claims.claims["sub"].as_str().expect("sub").to_string()
+}
+
+/// The server asks for a discoverable passkey (`residentKey: required`);
+/// `SoftPasskey` keeps no resident keys and would refuse. Check the request,
+/// then relax it for the software authenticator.
+fn for_soft_passkey(mut ccr: CreationChallengeResponse) -> CreationChallengeResponse {
+    let selection = ccr
+        .public_key
+        .authenticator_selection
+        .as_mut()
+        .expect("registration states an authenticator selection");
+    assert!(
+        selection.require_resident_key,
+        "discoverable passkey requested"
+    );
+    selection.resident_key = Some(webauthn_rs_proto::ResidentKeyRequirement::Discouraged);
+    selection.require_resident_key = false;
+    ccr
 }

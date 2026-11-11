@@ -215,7 +215,7 @@ async fn webauthn_register_and_login_round_trip_with_valid_oidc_token() {
 
     // -- perform the ceremony with a software passkey --
     let credential = auth_client
-        .do_registration(origin.clone(), ccr)
+        .do_registration(origin.clone(), for_soft_passkey(ccr))
         .expect("software passkey registration ceremony");
 
     // -- register/finish --
@@ -309,7 +309,9 @@ async fn deleting_the_only_passkey_is_refused() {
     let begin = json_body(resp).await;
     let ccr: CreationChallengeResponse =
         serde_json::from_value(begin["challenge"].clone()).unwrap();
-    let credential = auth_client.do_registration(origin.clone(), ccr).unwrap();
+    let credential = auth_client
+        .do_registration(origin.clone(), for_soft_passkey(ccr))
+        .unwrap();
     server
         .client
         .post(format!("{}/auth/register/finish", server.base_url))
@@ -437,4 +439,22 @@ async fn without_a_trusted_proxy_forwarded_for_does_not_split_the_rate_limit() {
     assert_eq!(hammer_login_begin(&server, "203.0.113.1", 21).await, 429);
     // The header is ignored: forging it must not buy a fresh bucket.
     assert_eq!(hammer_login_begin(&server, "203.0.113.2", 1).await, 429);
+}
+
+/// The server asks for a discoverable passkey (`residentKey: required`);
+/// `SoftPasskey` keeps no resident keys and would refuse. Check the request,
+/// then relax it for the software authenticator.
+fn for_soft_passkey(mut ccr: CreationChallengeResponse) -> CreationChallengeResponse {
+    let selection = ccr
+        .public_key
+        .authenticator_selection
+        .as_mut()
+        .expect("registration states an authenticator selection");
+    assert!(
+        selection.require_resident_key,
+        "discoverable passkey requested"
+    );
+    selection.resident_key = Some(webauthn_rs_proto::ResidentKeyRequirement::Discouraged);
+    selection.require_resident_key = false;
+    ccr
 }
