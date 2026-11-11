@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 license = "LGPL-3.0-or-later"
 publish = false
-rust-version = "1.85"
+rust-version = "1.89"
 
 [[bin]]
 name = "leaf"
@@ -15,14 +15,14 @@ path = "src/lib.rs"
 
 [dependencies]
 # brig·id core crates (git dep pointing to the core repository)
-brigid-api = { git = "https://github.com/brig-id/core", rev = "fa9602432595f37540a9ff268be6d6133b92f644", package = "brigid-api" }
-brigid-store = { git = "https://github.com/brig-id/core", rev = "fa9602432595f37540a9ff268be6d6133b92f644", package = "brigid-store" }
-brigid-identity = { git = "https://github.com/brig-id/core", rev = "fa9602432595f37540a9ff268be6d6133b92f644", package = "brigid-identity" }
-brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "fa9602432595f37540a9ff268be6d6133b92f644", package = "brigid-webauthn" }
-brigid-oidc = { git = "https://github.com/brig-id/core", rev = "fa9602432595f37540a9ff268be6d6133b92f644", package = "brigid-oidc" }
+brigid-api = { git = "https://github.com/brig-id/core", rev = "b5d55ea7fe1299b052e5d0cb9bd9a47788859db7", package = "brigid-api" }
+brigid-store = { git = "https://github.com/brig-id/core", rev = "b5d55ea7fe1299b052e5d0cb9bd9a47788859db7", package = "brigid-store" }
+brigid-identity = { git = "https://github.com/brig-id/core", rev = "b5d55ea7fe1299b052e5d0cb9bd9a47788859db7", package = "brigid-identity" }
+brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "b5d55ea7fe1299b052e5d0cb9bd9a47788859db7", package = "brigid-webauthn" }
+brigid-oidc = { git = "https://github.com/brig-id/core", rev = "b5d55ea7fe1299b052e5d0cb9bd9a47788859db7", package = "brigid-oidc" }
 
 # Cryptographic primitives
-brigid-crypto = { git = "https://github.com/brig-id/crypto", rev = "52d0983b557b6f294b9f40a9896d95d03e2e4681" }
+brigid-crypto = { git = "https://github.com/brig-id/crypto", tag = "v0.1.0" }
 
 # CLI + configuration
 clap = { version = "4", features = ["derive", "env"] }
@@ -47,6 +47,7 @@ rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs"] 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 url = "2"
+time = "0.3"
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["test"] }

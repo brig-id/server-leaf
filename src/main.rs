@@ -71,6 +71,11 @@ enum Command {
         new: PathBuf,
     },
 
+    /// Make a new OIDC signing key current. The previous one keeps verifying
+    /// tokens for the grace period (tokens live one hour), then is pruned at
+    /// a later start. Restart leaf afterwards to sign with the new key.
+    RotateOidcKey,
+
     /// Liveness probe for Docker's HEALTHCHECK: GET the local `/health`,
     /// exit 0 on 200, 1 otherwise. Reads only `LEAF_SERVER__PORT` (default
     /// 8080), so it needs neither the config file nor the master key.
@@ -120,10 +125,85 @@ async fn rotate_key(db: &config::DatabaseConfig, old_path: &Path, new_path: &Pat
     eprintln!("  - Every user's VSID (the OIDC `sub` claim) changed for every relying party —");
     eprintln!("    any relying party correlating users by VSID loses that continuity across");
     eprintln!("    this rotation. There is no way to preserve it.");
-    eprintln!("  - The OIDC signing key is derived from BRIGID_MASTER_KEY, so every id_token");
-    eprintln!("    issued before this rotation is invalid now, not just after its natural expiry.");
+    eprintln!("  - Stored OIDC signing keys were re-encrypted and keep working: issued tokens");
+    eprintln!("    stay valid. Rotate them separately with `leaf rotate-oidc-key`.");
     eprintln!();
     eprintln!("Update BRIGID_MASTER_KEY to the new key before starting leaf again.");
+}
+
+/// How long a retired OIDC key keeps verifying: the one-hour token lifetime
+/// plus a margin for clock skew and refresh in flight.
+const OIDC_GRACE: time::Duration = time::Duration::hours(2);
+
+/// Reads the master key from `BRIGID_MASTER_KEY_FILE` (preferred, a mounted
+/// secret) or `BRIGID_MASTER_KEY`.
+fn load_master_key() -> MasterKey {
+    match std::env::var_os("BRIGID_MASTER_KEY_FILE") {
+        Some(path) => MasterKey::from_file(Path::new(&path)).expect(
+            "BRIGID_MASTER_KEY_FILE must point to a file containing a 64-character hex string (32 bytes)",
+        ),
+        None => MasterKey::from_env()
+            .expect("BRIGID_MASTER_KEY (or BRIGID_MASTER_KEY_FILE) must be set to a 64-character hex string (32 bytes)"),
+    }
+}
+
+/// The current OIDC key and the retired ones still in grace (core#22).
+///
+/// On first start with an empty `oidc_keys` table, the key derived from the
+/// master key the way earlier releases did is stored under its old `kid`
+/// ("v1"), so tokens issued before the upgrade keep verifying.
+async fn load_oidc_keys(
+    store: &EncryptedStore,
+    legacy_seed: &[u8; 32],
+) -> (OidcSigningKey, Vec<OidcSigningKey>) {
+    let pruned = store
+        .prune_oidc_keys(time::OffsetDateTime::now_utc() - OIDC_GRACE)
+        .await
+        .expect("failed to prune retired OIDC keys");
+    if pruned > 0 {
+        tracing::info!(
+            pruned,
+            "retired OIDC signing keys past their grace period removed"
+        );
+    }
+    let mut keys = store
+        .oidc_signing_keys()
+        .await
+        .expect("failed to read OIDC signing keys");
+    if keys.is_empty() {
+        store
+            .add_oidc_signing_key("v1", legacy_seed)
+            .await
+            .expect("failed to store the initial OIDC signing key");
+        keys = store
+            .oidc_signing_keys()
+            .await
+            .expect("failed to read OIDC signing keys");
+    }
+    let mut keys = keys
+        .into_iter()
+        .map(|k| OidcSigningKey::from_raw_bytes(k.kid, &k.seed));
+    let current = keys.next().expect("at least one OIDC key is stored");
+    (current, keys.collect())
+}
+
+/// Handles `leaf rotate-oidc-key`.
+async fn rotate_oidc_key(db: &config::DatabaseConfig) {
+    let store = EncryptedStore::new(&db_url(&db.path), load_master_key())
+        .await
+        .expect("failed to open or migrate database");
+    let seed = OidcSigningKey::generate().to_raw_bytes();
+    let key = OidcSigningKey::from_seed(&seed);
+    store
+        .add_oidc_signing_key(key.kid(), &seed)
+        .await
+        .expect("failed to store the new OIDC signing key");
+    eprintln!("✓ New OIDC signing key {} is current.", key.kid());
+    eprintln!("  Restart leaf to sign with it. Tokens signed by the previous key keep");
+    eprintln!(
+        "  verifying for {} hours, then that key is removed at a later start.",
+        OIDC_GRACE.whole_hours()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -168,10 +248,10 @@ async fn main() {
     // than an error, so an explicit --config typo would otherwise fall
     // through silently to an unrelated "missing field `server`" error with
     // no mention of the path that was actually looked up.
-    if let Some(path) = cli.config.as_deref() {
-        if !path.exists() {
-            panic!("config file not found: {}", path.display());
-        }
+    if let Some(path) = cli.config.as_deref()
+        && !path.exists()
+    {
+        panic!("config file not found: {}", path.display());
     }
 
     // rotate-key only ever needs the database path — extracting the full
@@ -182,37 +262,40 @@ async fn main() {
         rotate_key(&db, &old, &new).await;
         return;
     }
+    if let Some(Command::RotateOidcKey) = cli.command {
+        let db = config::load_database(cli.config.as_deref()).expect("configuration error");
+        rotate_oidc_key(&db).await;
+        return;
+    }
 
     let cfg = config::load(cli.config.as_deref()).expect("configuration error");
 
     // -- MASTER_KEY ----------------------------------------------------------
     // Must come from the environment or a Docker-secrets file — never from
-    // the config file. BRIGID_MASTER_KEY_FILE takes precedence so a mounted
-    // secret (see deploy/compose.yaml) is preferred over a plaintext env var
-    // when both happen to be present.
-    let master = match std::env::var_os("BRIGID_MASTER_KEY_FILE") {
-        Some(path) => MasterKey::from_file(Path::new(&path)).expect(
-            "BRIGID_MASTER_KEY_FILE must point to a file containing a 64-character hex string (32 bytes)",
-        ),
-        None => MasterKey::from_env()
-            .expect("BRIGID_MASTER_KEY (or BRIGID_MASTER_KEY_FILE) must be set to a 64-character hex string (32 bytes)"),
-    };
+    // the config file (see `load_master_key`).
+    let master = load_master_key();
 
     // Derive VSID salt before master is moved into the store.
     let vsid_salt = derive_vsid_salt(&master);
 
-    // -- OIDC signing key ---------------------------------------------------
-    // Derived from master key so it is stable across process restarts.
-    // Tokens issued before a restart remain valid.
-    let oidc_raw =
+    // -- Database ------------------------------------------------------------
+    // The key earlier releases derived from the master key: stored on first
+    // start (see `load_oidc_keys`), derived now since the store takes `master`.
+    let legacy_oidc_seed =
         brigid_crypto::hkdf::derive_user_key(&master, b"oidc-signing-key", b"oidc-ed25519")
             .expect("HKDF key derivation failed");
-    let oidc_key = OidcSigningKey::from_raw_bytes("v1".to_string(), &oidc_raw);
-
-    // -- Database ------------------------------------------------------------
     let store = EncryptedStore::new(&db_url(&cfg.database.path), master)
         .await
         .expect("failed to open or migrate database");
+
+    // -- OIDC signing keys ---------------------------------------------------
+    let (oidc_key, retired_oidc_keys) = load_oidc_keys(&store, &legacy_oidc_seed).await;
+    drop(legacy_oidc_seed);
+    tracing::info!(
+        kid = oidc_key.kid(),
+        retired = retired_oidc_keys.len(),
+        "OIDC signing keys loaded"
+    );
 
     // -- Application state --------------------------------------------------
     let base_url: Url = match cfg.server.public_url {
@@ -244,9 +327,10 @@ async fn main() {
         })
         .collect();
 
-    let state = Arc::new(AppState::new(
-        store, webauthn, oidc_key, base_url, vsid_salt,
-    ));
+    let state = Arc::new(
+        AppState::new(store, webauthn, oidc_key, base_url, vsid_salt)
+            .with_retired_oidc_keys(retired_oidc_keys),
+    );
     let api_router = build_router(state, &cors_origins);
 
     // Optionally serve the pre-built Qwik UI from the configured directory.
