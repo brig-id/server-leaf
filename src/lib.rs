@@ -25,14 +25,12 @@ use tower_http::set_header::SetResponseHeaderLayer;
 /// set, but only around the routes it defines *before* returning — in axum
 /// 0.8, a `.layer()` wraps whatever routes/fallback exist at the time it's
 /// called, not ones added afterwards. Since `server-leaf` always calls
-/// `fallback_service` *after* `build_router` returns, that inner layer
-/// silently never reached the UI responses (`/login`, `/register`, static
-/// assets, …), leaving them with no CSP/X-Frame-Options/HSTS at all.
-/// Re-applying the same headers here — genuinely last, after the fallback is
-/// attached — is what actually covers every response `leaf` serves.
-/// `if_not_present` makes this a no-op for API routes, which already carry
-/// these headers from the inner layer (whose CSP value has since diverged
-/// from this one: see [`ui_csp`]).
+/// `fallback_service` *after* `build_router` returns, that inner layer does
+/// not reach the UI responses (`/login`, `/register`, static assets, …).
+/// Applying the headers here, after the fallback is attached, covers every
+/// response `leaf` serves. `if_not_present` leaves API routes with the
+/// headers of the inner layer, whose CSP is stricter (JSON only); UI
+/// responses get [`ui_csp`].
 pub fn apply_ui_fallback(router: Router, dist: Option<&Path>) -> Router {
     let router = match dist {
         Some(path) => {
@@ -86,8 +84,8 @@ fn is_hash_source(s: &str) -> bool {
 ///
 /// With `dist/csp-hashes.json`, inline scripts and styles are allowed by
 /// hash only: no `'unsafe-inline'`, so an injected script does not run.
-/// Without it (an older UI build, or no UI), falls back to the previous
-/// `'unsafe-inline'` policy and says so in the log.
+/// Without it (a UI build that predates the manifest, or no UI), inline
+/// sources are allowed with `'unsafe-inline'`, and the log says so.
 ///
 /// `fonts.bunny.net` is the external font host the UI loads from; img-src and
 /// connect-src allow Unsplash, whose daily background photo the login and
