@@ -101,10 +101,9 @@ services:
     # whenever the upstream tag is republished. Refresh together with the
     # human-readable tag when upgrading Caddy.
     #
-    # Must be the multi-arch index digest, not a single-platform manifest —
-    # the previous pin (sha256:3739ea4f...) resolved to amd64 only, which
-    # ran fine on x86 hosts but crashed with "exec format error" on arm64
-    # (Oracle Ampere A1). Verify with `docker manifest inspect
+    # Must be the multi-arch index digest, not a single-platform manifest:
+    # an amd64-only digest runs on x86 hosts but fails with "exec format
+    # error" on arm64 (Oracle Ampere A1). Verify with `docker manifest inspect
     # caddy:2-alpine@sha256:<digest>` and check the top-level "mediaType"
     # is an image index before trusting a re-pin.
     image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648

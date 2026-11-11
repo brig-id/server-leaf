@@ -337,12 +337,10 @@ async fn main() {
                 .await
                 .expect("HTTP server error");
         }
-        // Refuse to start when only one of (tls_cert, tls_key) is set.
-        // Falling back to plain HTTP in this case (the previous behaviour)
-        // would silently disable TLS in production whenever an operator
-        // typo'd a single path, defeating the entire transport-security
-        // guarantee. A hard failure forces the misconfiguration to surface
-        // at startup rather than after public exposure.
+        // Refuse to start when only one of (tls_cert, tls_key) is set: falling
+        // back to plain HTTP would silently disable TLS whenever an operator
+        // mistypes a single path. A hard failure surfaces the
+        // misconfiguration at startup rather than after public exposure.
         (Some(_), None) => {
             panic!(
                 "server.tls_cert is set but server.tls_key is missing — \
