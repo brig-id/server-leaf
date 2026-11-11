@@ -68,7 +68,12 @@ RUN --mount=type=secret,id=npm_token \
 # Pin the builder image to an immutable digest so rebuilds are deterministic
 # and supply-chain risk from upstream tag movement is bounded. Bump the
 # digest together with the human-readable tag when upgrading Rust.
-FROM rust:1.89-slim@sha256:8cffb8fe4e8a95cf0d6a2060375e5a28aff4c752155aa9f1f9193530769bdf66 AS rust-builder
+#
+# The builder's Debian must match the runtime's (distroless cc-debian12 =
+# bookworm, glibc 2.36): the binary links against the builder's glibc, so a
+# newer one (trixie, 2.41) gives "GLIBC_2.38 not found" at startup. Always the
+# `-bookworm` variant, never the bare `-slim` tag, which follows Debian.
+FROM rust:1.89-slim-bookworm@sha256:d7fc7de78bb8c1469933aeecbf801314d30d7d6e9f0578bba4cfa285bfa37fe6 AS rust-builder
 
 WORKDIR /build
 

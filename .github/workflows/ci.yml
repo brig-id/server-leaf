@@ -73,8 +73,15 @@ jobs:
         with:
           context: .
           push: false
+          load: true
+          tags: leaf:ci
           secrets: |
             npm_token=${{ secrets.WEBAWESOME_NPM_TOKEN }}
+
+      - name: Run the binary in the image
+        # Building is not enough: a builder/runtime glibc mismatch only shows
+        # when the binary starts ("GLIBC_2.38 not found", v0.2.0).
+        run: docker run --rm leaf:ci --help > /dev/null
 
   # Runs only on a `vX.Y.Z` tag push — the actual release artifact. Separate
   # from the `docker` validation job above (which stays fast, single-arch,

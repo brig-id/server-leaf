@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-11
+
+### Fixed
+
+- The v0.2.0 image did not start: the binary was built on Debian trixie
+  (`rust:1.89-slim`, glibc 2.41) for a bookworm runtime (glibc 2.36). The
+  builder is pinned to `rust:1.89-slim-bookworm`, and CI now starts the binary
+  in the built image.
+
 ### Changed
 
 - The VSID secret is stored in the database instead of derived from the
