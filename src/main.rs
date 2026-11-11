@@ -5,8 +5,8 @@
 //! 1. Parse CLI arguments (config file path).
 //! 2. Load and validate configuration (TOML + env).
 //! 3. Load `BRIGID_MASTER_KEY` from environment (mandatory).
-//! 4. Derive VSID salt from master key.
-//! 5. Open and migrate the SQLite database.
+//! 4. Open and migrate the SQLite database.
+//! 5. Read the VSID secret and the OIDC signing keys from it.
 //! 6. Build the Axum application (router + state).
 //! 7. Start TLS (if cert/key configured) or plain HTTP server.
 //! 8. Await graceful shutdown on `SIGTERM` / `CTRL-C`.
@@ -110,9 +110,18 @@ async fn rotate_key(db: &config::DatabaseConfig, old_path: &Path, new_path: &Pat
     let new_master = MasterKey::from_file(new_path)
         .expect("failed to read the new master key file (64 hex chars expected)");
 
+    let derived_vsid_salt = derive_vsid_salt(&old_master);
     let mut store = EncryptedStore::new(&db_url(&db.path), old_master)
         .await
         .expect("failed to open or migrate database");
+
+    // A database last started by a leaf that derived the VSID secret from the
+    // master key has none stored yet. Record it under the old key first, or
+    // the rotation would leave nothing to compute the existing VSIDs with.
+    store
+        .vsid_secret(&derived_vsid_salt)
+        .await
+        .expect("failed to read or store the VSID secret");
 
     store
         .rotate_master_key(new_master)
@@ -121,12 +130,10 @@ async fn rotate_key(db: &config::DatabaseConfig, old_path: &Path, new_path: &Pat
 
     eprintln!("✓ MASTER_KEY rotated successfully.");
     eprintln!();
-    eprintln!("This has consequences beyond re-encrypting the database:");
-    eprintln!("  - Every user's VSID (the OIDC `sub` claim) changed for every relying party —");
-    eprintln!("    any relying party correlating users by VSID loses that continuity across");
-    eprintln!("    this rotation. There is no way to preserve it.");
-    eprintln!("  - Stored OIDC signing keys were re-encrypted and keep working: issued tokens");
-    eprintln!("    stay valid. Rotate them separately with `leaf rotate-oidc-key`.");
+    eprintln!("Nothing changes for users or relying parties: the OIDC signing keys and the");
+    eprintln!("VSID secret are stored and were re-encrypted, so issued tokens stay valid and");
+    eprintln!("every VSID (the OIDC `sub` claim) keeps its value. Rotate the signing keys");
+    eprintln!("separately with `leaf rotate-oidc-key`.");
     eprintln!();
     eprintln!("Update BRIGID_MASTER_KEY to the new key before starting leaf again.");
 }
@@ -275,8 +282,10 @@ async fn main() {
     // the config file (see `load_master_key`).
     let master = load_master_key();
 
-    // Derive VSID salt before master is moved into the store.
-    let vsid_salt = derive_vsid_salt(&master);
+    // The VSID secret as it was obtained before being stored: kept by a
+    // database whose accounts already have VSIDs (see `vsid_secret`). Derived
+    // now, since the store takes `master`.
+    let derived_vsid_salt = derive_vsid_salt(&master);
 
     // -- Database ------------------------------------------------------------
     // The key earlier releases derived from the master key: stored on first
@@ -287,6 +296,13 @@ async fn main() {
     let store = EncryptedStore::new(&db_url(&cfg.database.path), master)
         .await
         .expect("failed to open or migrate database");
+
+    // -- VSID secret ---------------------------------------------------------
+    // Stored, so that rotating the master key does not change every VSID.
+    let vsid_salt = *store
+        .vsid_secret(&derived_vsid_salt)
+        .await
+        .expect("failed to read or store the VSID secret");
 
     // -- OIDC signing keys ---------------------------------------------------
     let (oidc_key, retired_oidc_keys) = load_oidc_keys(&store, &legacy_oidc_seed).await;

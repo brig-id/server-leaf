@@ -7,8 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The VSID secret is stored in the database instead of derived from the
+  master key at each start (ADR-006 in the spec). `leaf rotate-key`
+  re-encrypts it: **a master key rotation no longer changes every VSID**. An
+  existing database keeps the value it was using, so no `sub` changes at the
+  upgrade; a new one gets a random secret.
+
 ### Fixed
 
+- Accounts can only be registered under this server's own domain, the account
+  pages are no longer throttled right after signing in (their rate limit is
+  separate from the sign-in ceremonies', 60 requests per minute), and an
+  internal error logs its cause (`core` update).
 - Rate limiting behind a reverse proxy. Every request reaches `leaf` from the
   proxy's address, so all clients shared one rate-limit bucket (20 requests
   per minute for the whole instance). `security.trust_forwarded_for`
