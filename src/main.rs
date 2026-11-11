@@ -327,10 +327,10 @@ async fn main() {
         })
         .collect();
 
-    let state = Arc::new(
-        AppState::new(store, webauthn, oidc_key, base_url, vsid_salt)
-            .with_retired_oidc_keys(retired_oidc_keys),
-    );
+    let mut state = AppState::new(store, webauthn, oidc_key, base_url, vsid_salt)
+        .with_retired_oidc_keys(retired_oidc_keys);
+    state.trust_forwarded_for = cfg.security.trust_forwarded_for;
+    let state = Arc::new(state);
     let api_router = build_router(state, &cors_origins);
 
     // Optionally serve the pre-built Qwik UI from the configured directory.

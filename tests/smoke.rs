@@ -42,6 +42,11 @@ impl Drop for TestServer {
 /// `rate_limit_21st_auth_request_returns_429` from bleeding into the other
 /// tests here.
 fn start_leaf() -> TestServer {
+    start_leaf_with(&[])
+}
+
+/// [`start_leaf`] with extra environment variables for the `leaf` process.
+fn start_leaf_with(extra_env: &[(&str, &str)]) -> TestServer {
     let port = free_port();
     let db_dir = tempfile::TempDir::new().expect("tempdir for db");
     let db_path = db_dir.path().join("smoke.db");
@@ -63,6 +68,7 @@ fn start_leaf() -> TestServer {
             "LEAF_SERVER__UI_DIST_DIR",
             ui_dir.path().display().to_string(),
         )
+        .envs(extra_env.iter().copied())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
@@ -396,4 +402,39 @@ async fn twenty_first_auth_request_returns_429() {
         last_status, 429,
         "21st rapid /auth/* request should be rate-limited"
     );
+}
+
+/// Sends `count` rapid `/auth/login/begin` requests announcing `client_ip` in
+/// `X-Forwarded-For`, as a reverse proxy would, and returns the last status.
+async fn hammer_login_begin(server: &TestServer, client_ip: &str, count: usize) -> u16 {
+    let mut last_status = 0;
+    for _ in 0..count {
+        last_status = server
+            .client
+            .post(format!("{}/auth/login/begin", server.base_url))
+            .header("x-forwarded-for", client_ip)
+            .json(&json!({ "username": "nobody@localhost", "client_id": "smoke-test-client" }))
+            .send()
+            .await
+            .unwrap()
+            .status()
+            .as_u16();
+    }
+    last_status
+}
+
+#[tokio::test]
+async fn behind_a_trusted_proxy_each_client_has_its_own_rate_limit() {
+    let server = start_leaf_with(&[("LEAF_SECURITY__TRUST_FORWARDED_FOR", "true")]);
+    assert_eq!(hammer_login_begin(&server, "203.0.113.1", 21).await, 429);
+    // A second client behind the same proxy is not throttled by the first.
+    assert_ne!(hammer_login_begin(&server, "203.0.113.2", 1).await, 429);
+}
+
+#[tokio::test]
+async fn without_a_trusted_proxy_forwarded_for_does_not_split_the_rate_limit() {
+    let server = start_leaf();
+    assert_eq!(hammer_login_begin(&server, "203.0.113.1", 21).await, 429);
+    // The header is ignored: forging it must not buy a fresh bucket.
+    assert_eq!(hammer_login_begin(&server, "203.0.113.2", 1).await, 429);
 }

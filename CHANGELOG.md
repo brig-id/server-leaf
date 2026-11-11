@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Rate limiting behind a reverse proxy. Every request reaches `leaf` from the
+  proxy's address, so all clients shared one rate-limit bucket (20 requests
+  per minute for the whole instance). `security.trust_forwarded_for`
+  (`LEAF_SECURITY__TRUST_FORWARDED_FOR`) makes the limit apply per client IP
+  read from `X-Forwarded-For`; `deploy/compose.yaml` turns it on. Off by
+  default, since a directly reachable `leaf` must not trust that header.
+
 ## [0.2.0] - 2026-11-11
 
 ### Added
