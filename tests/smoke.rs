@@ -287,7 +287,7 @@ async fn webauthn_register_and_login_round_trip_with_valid_oidc_token() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn delete_passkey_after_login_returns_200() {
+async fn deleting_the_only_passkey_is_refused() {
     let server = start_leaf();
     let origin = url::Url::parse(&server.base_url).unwrap();
     let mut auth_client = WebauthnAuthenticator::new(SoftPasskey::new(true));
@@ -365,7 +365,9 @@ async fn delete_passkey_after_login_returns_200() {
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status(), 200, "delete should succeed after login");
+    // brig·id is passkey-only: removing the account's last passkey would
+    // lock it out, so the server refuses (core#41).
+    assert_eq!(resp.status(), 409, "the only passkey must not be deletable");
 }
 
 // ---------------------------------------------------------------------------

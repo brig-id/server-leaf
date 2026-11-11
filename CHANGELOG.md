@@ -18,6 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   route and status; latency histograms). Off by default; port 9100 on the
   internal overlay network in `deploy/compose.yaml`, never published.
 
+- `leaf rotate-oidc-key`: makes a new OIDC signing key current. Signing keys
+  are now stored (encrypted) in the database instead of derived from the
+  master key; the previous key keeps verifying and stays in the JWKS for two
+  hours, then is removed at a later start. On upgrade the derived key is
+  stored under its old `kid` (`v1`), so issued tokens stay valid.
+- Identities, templates, passkey names, username-less login, session check and
+  refresh, identity tokens: from brig-id/core#72.
+
+### Changed
+
+- `leaf rotate-key` no longer invalidates issued tokens: the OIDC keys are
+  re-encrypted, not re-derived.
+- Rust 1.89 (MSRV and the image's builder), as core requires.
+
 ### Security
 
 - The UI's Content-Security-Policy allows inline scripts and styles by hash,

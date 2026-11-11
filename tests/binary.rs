@@ -245,3 +245,63 @@ fn healthcheck_passes_and_metrics_count_requests() {
     );
     assert!(!public.contains("leaf_http_requests_total"));
 }
+
+// ---------------------------------------------------------------------------
+// `leaf rotate-oidc-key` (core#22): the new key signs, the previous one stays
+// in the JWKS for its grace period
+// ---------------------------------------------------------------------------
+
+#[test]
+fn rotate_oidc_key_publishes_both_keys() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("brigid.db");
+    let start = |port: u16| {
+        let child = Command::new(leaf_bin())
+            .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
+            .env("LEAF_SERVER__DOMAIN", "localhost")
+            .env("LEAF_SERVER__HOST", "127.0.0.1")
+            .env("LEAF_SERVER__PORT", port.to_string())
+            .env("LEAF_DATABASE__PATH", &db)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn leaf");
+        let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+        assert!(wait_until_listening(addr, Duration::from_secs(5)));
+        (child, addr)
+    };
+    let kids = |addr: SocketAddr| -> Vec<String> {
+        let response = http_get(addr, "/.well-known/jwks.json");
+        let body = response.split("\r\n\r\n").nth(1).unwrap_or_default();
+        let json: serde_json::Value = serde_json::from_str(body).expect("JWKS JSON");
+        json["keys"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|k| k["kid"].as_str().unwrap().to_string())
+            .collect()
+    };
+
+    // First start stores the key earlier releases derived, under kid "v1".
+    let (mut child, addr) = start(free_port());
+    assert_eq!(kids(addr), ["v1"]);
+    child.kill().ok();
+    child.wait().ok();
+
+    let status = Command::new(leaf_bin())
+        .arg("rotate-oidc-key")
+        .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
+        .env("LEAF_DATABASE__PATH", &db)
+        .stderr(Stdio::null())
+        .status()
+        .expect("run rotate-oidc-key");
+    assert!(status.success());
+
+    let (mut child, addr) = start(free_port());
+    let published = kids(addr);
+    child.kill().ok();
+    child.wait().ok();
+    assert_eq!(published.len(), 2, "{published:?}");
+    assert_ne!(published[0], "v1", "the new key comes first");
+    assert_eq!(published[1], "v1", "the retired key stays published");
+}
