@@ -55,7 +55,7 @@ jobs:
           # floating `main` means two builds of the same server-leaf commit
           # could embed different UI code depending on when they ran. Bump
           # deliberately when app ships a change meant to land in leaf.
-          ref: 4fe2ea9cf04fa6d0f75865d14f38b99c969898f7 # main @ 2026-09-03
+          ref: 15b6ece9af006dc32eef32d88091c013b0ad432c # main @ 2026-11-11
           path: ui
 
       - name: Set up Docker Buildx
@@ -91,7 +91,7 @@ jobs:
           # bumping. Once app/core/crypto have their own tagged releases,
           # this should point at the app tag that belongs to this leaf
           # release rather than a bare commit.
-          ref: 4fe2ea9cf04fa6d0f75865d14f38b99c969898f7 # main @ 2026-09-03
+          ref: 15b6ece9af006dc32eef32d88091c013b0ad432c # main @ 2026-11-11
           path: ui
 
       - name: Set up QEMU (cross-arch emulation for the arm64 build)
