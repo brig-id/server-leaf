@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- `core` update: generic code comes from helpers4. Three checks are stricter:
+  the `Bearer` scheme is matched case-insensitively and only RFC 6750 token
+  characters are accepted; the server part of a username cannot be an IP
+  address; an icon name cannot start or end with a hyphen.
+
 ## [0.2.1] - 2026-11-11
 
 ### Fixed
