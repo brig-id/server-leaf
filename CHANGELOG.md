@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   route and status; latency histograms). Off by default; port 9100 on the
   internal overlay network in `deploy/compose.yaml`, never published.
 
+### Security
+
+- The UI's Content-Security-Policy allows inline scripts and styles by hash,
+  read from the `dist/csp-hashes.json` the UI build now writes, instead of
+  `'unsafe-inline'` (core#20, app#3). An older UI build without the manifest
+  falls back to `'unsafe-inline'` with a warning in the log.
+
 ## [0.1.2] - 2026-09-05
 
 ### Fixed
