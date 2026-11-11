@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
 ### Added
 
 - `leaf healthcheck`: the binary probes its own `/health` (exit 0 on 200, 1
@@ -17,7 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   serving Prometheus metrics at `/metrics` (request counts by method, matched
   route and status; latency histograms). Off by default; port 9100 on the
   internal overlay network in `deploy/compose.yaml`, never published.
-
 - `leaf rotate-oidc-key`: makes a new OIDC signing key current. Signing keys
   are now stored (encrypted) in the database instead of derived from the
   master key; the previous key keeps verifying and stays in the JWKS for two
@@ -25,12 +26,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   stored under its old `kid` (`v1`), so issued tokens stay valid.
 - Identities, templates, passkey names, username-less login, session check and
   refresh, identity tokens: from brig-id/core#72.
+- The bundled UI is app's current `main`: signed-in shell with navigation,
+  Identities page with an icon library, passkey names, passkey autofill and
+  username-less sign-in, clearer unsupported-browser message (brig-id/app#32).
 
 ### Changed
 
 - `leaf rotate-key` no longer invalidates issued tokens: the OIDC keys are
   re-encrypted, not re-derived.
 - Rust 1.89 (MSRV and the image's builder), as core requires.
+- Deleting an account's only passkey is refused (`409`), from core.
 
 ### Security
 
@@ -38,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   read from the `dist/csp-hashes.json` the UI build now writes, instead of
   `'unsafe-inline'` (core#20, app#3). An older UI build without the manifest
   falls back to `'unsafe-inline'` with a warning in the log.
+- `ctutils` 0.4.8 (RUSTSEC-2026-0385, non-constant-time comparisons).
 
 ## [0.1.2] - 2026-09-05
 
