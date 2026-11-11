@@ -25,7 +25,7 @@ brigid-oidc = { git = "https://github.com/brig-id/core", rev = "fa9602432595f375
 brigid-crypto = { git = "https://github.com/brig-id/crypto", rev = "52d0983b557b6f294b9f40a9896d95d03e2e4681" }
 
 # CLI + configuration
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 
 # Async runtime

@@ -20,7 +20,7 @@ use std::{
     time::Duration,
 };
 
-use leaf::apply_ui_fallback;
+use leaf::{apply_ui_fallback, metrics, probe};
 
 use clap::{Parser, Subcommand};
 use tracing_subscriber::{EnvFilter, fmt};
@@ -69,6 +69,15 @@ enum Command {
         /// Path to a file containing the new master key (64 hex chars).
         #[arg(long)]
         new: PathBuf,
+    },
+
+    /// Liveness probe for Docker's HEALTHCHECK: GET the local `/health`,
+    /// exit 0 on 200, 1 otherwise. Reads only `LEAF_SERVER__PORT` (default
+    /// 8080), so it needs neither the config file nor the master key.
+    Healthcheck {
+        /// Port of the plain-HTTP listener to probe.
+        #[arg(long, env = "LEAF_SERVER__PORT", default_value_t = 8080)]
+        port: u16,
     },
 }
 
@@ -135,6 +144,18 @@ async fn main() {
         .expect("no CryptoProvider should be installed yet — this runs once at startup");
 
     let cli = Cli::parse();
+
+    // The probe runs every few seconds: no logging setup, no config, no key.
+    if let Some(Command::Healthcheck { port }) = cli.command {
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        match probe::check(addr, Duration::from_secs(3)) {
+            Ok(()) => std::process::exit(0),
+            Err(e) => {
+                eprintln!("unhealthy: {e}");
+                std::process::exit(1);
+            }
+        }
+    }
 
     // Structured JSON logs — verbosity controlled by RUST_LOG.
     fmt()
@@ -235,6 +256,32 @@ async fn main() {
         tracing::info!(path = %dir.display(), "serving UI static files");
     }
     let app = apply_ui_fallback(api_router, cfg.server.ui_dist_dir.as_deref());
+
+    // -- Metrics -------------------------------------------------------------
+    // Counted on the public app, served on a separate internal listener.
+    let app = match cfg.server.metrics_port {
+        Some(port) => {
+            let registry = metrics::Metrics::default();
+            let metrics_ip: std::net::IpAddr = cfg
+                .server
+                .host
+                .parse()
+                .expect("invalid `server.host` in configuration");
+            let metrics_addr = SocketAddr::new(metrics_ip, port);
+            let listener = tokio::net::TcpListener::bind(metrics_addr)
+                .await
+                .unwrap_or_else(|e| panic!("cannot bind metrics listener {metrics_addr}: {e}"));
+            let router = metrics::metrics_router(registry.clone());
+            tracing::info!(%metrics_addr, "metrics listener (internal only)");
+            tokio::spawn(async move {
+                if let Err(e) = axum::serve(listener, router).await {
+                    tracing::error!(error = %e, "metrics listener stopped");
+                }
+            });
+            metrics::instrument(app, registry)
+        }
+        None => app,
+    };
 
     // -- Server --------------------------------------------------------------
     // Parse the host as an IpAddr first so that IPv6 addresses are bracketed

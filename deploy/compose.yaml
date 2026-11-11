@@ -64,6 +64,9 @@ services:
       LEAF_SERVER__PUBLIC_URL: "https://${BRIGID_DOMAIN:?BRIGID_DOMAIN must be set}"
       LEAF_SERVER__HOST: "0.0.0.0"
       LEAF_SERVER__PORT: "8080"
+      # Prometheus metrics on the internal overlay network only: not in
+      # `ports`, and Caddy only proxies 8080. Scrape leaf:9100/metrics.
+      LEAF_SERVER__METRICS_PORT: "9100"
       # Must match the Dockerfile's COPY destination for the pre-built Qwik
       # UI (`COPY --from=ui-builder /ui/dist /ui/dist`). Without this, the
       # binary's ui_dist_dir config stays unset and apply_ui_fallback()
@@ -80,21 +83,14 @@ services:
     expose:
       - "8080"
     healthcheck:
-      # Healthcheck is intentionally disabled.
-      #
-      # The leaf container runs on a distroless image with no shell, no
-      # curl/wget, and no busybox — a Docker `HEALTHCHECK` CMD has nothing
-      # to invoke. Embedding an in-process probe binary (e.g. grpc_health_probe
-      # or a tiny Rust shim) is tracked as a future phase.
-      #
-      # Until then, liveness is observed externally:
-      #   • Caddy (this compose file) reverse-proxies `/` to leaf; a failing
-      #     leaf surfaces immediately to clients as 502/504.
-      #   • Operators running this stack behind a load balancer / orchestrator
-      #     (Kubernetes, Nomad, ECS, …) should configure an L7 probe targeting
-      #     `https://${BRIGID_DOMAIN}/health` from the proxy layer, or an L4
-      #     TCP probe on `8080` inside the `internal` network.
-      disable: true
+      # `leaf healthcheck` GETs the local /health (the distroless image has no
+      # shell or curl, so the binary probes itself). Same as the image's own
+      # HEALTHCHECK, restated so the stack file is explicit.
+      test: ["CMD", "/leaf", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
 
   # --------------------------------------------------------------------------
   # Caddy reverse proxy — automatic TLS via Let's Encrypt
