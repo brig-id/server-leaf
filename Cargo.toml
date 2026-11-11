@@ -15,11 +15,11 @@ path = "src/lib.rs"
 
 [dependencies]
 # brig·id core crates (git dep pointing to the core repository)
-brigid-api = { git = "https://github.com/brig-id/core", rev = "b94cf97016d4da08e83c701c44fea487178a47f8", package = "brigid-api" }
-brigid-store = { git = "https://github.com/brig-id/core", rev = "b94cf97016d4da08e83c701c44fea487178a47f8", package = "brigid-store" }
-brigid-identity = { git = "https://github.com/brig-id/core", rev = "b94cf97016d4da08e83c701c44fea487178a47f8", package = "brigid-identity" }
-brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "b94cf97016d4da08e83c701c44fea487178a47f8", package = "brigid-webauthn" }
-brigid-oidc = { git = "https://github.com/brig-id/core", rev = "b94cf97016d4da08e83c701c44fea487178a47f8", package = "brigid-oidc" }
+brigid-api = { git = "https://github.com/brig-id/core", rev = "8dc3715bd693745213301b6ec4353b5530379919", package = "brigid-api" }
+brigid-store = { git = "https://github.com/brig-id/core", rev = "8dc3715bd693745213301b6ec4353b5530379919", package = "brigid-store" }
+brigid-identity = { git = "https://github.com/brig-id/core", rev = "8dc3715bd693745213301b6ec4353b5530379919", package = "brigid-identity" }
+brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "8dc3715bd693745213301b6ec4353b5530379919", package = "brigid-webauthn" }
+brigid-oidc = { git = "https://github.com/brig-id/core", rev = "8dc3715bd693745213301b6ec4353b5530379919", package = "brigid-oidc" }
 
 # Cryptographic primitives
 brigid-crypto = { git = "https://github.com/brig-id/crypto", tag = "v0.1.0" }

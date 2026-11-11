@@ -91,6 +91,9 @@ async fn rotate_key_cli_round_trip_login_works_with_new_key() {
         .unwrap();
     assert_eq!(resp.status(), 200, "register/finish should succeed");
 
+    let sub_before =
+        sign_in_and_read_sub(&client, &base_url, &mut auth_client, &origin, username).await;
+
     stop_leaf(child);
 
     // -- Rotate: leaf is not running, only the CLI subcommand is --
@@ -131,31 +134,45 @@ async fn rotate_key_cli_round_trip_login_works_with_new_key() {
     // now dead — reusing it here would race a stale pooled connection
     // against the just-restarted server instead of actually testing it.
     let client = reqwest::Client::new();
+    let sub_after =
+        sign_in_and_read_sub(&client, &base_url, &mut auth_client, &origin, username).await;
+    assert_eq!(
+        sub_before, sub_after,
+        "the VSID secret is stored: rotating the master key must not change the `sub`"
+    );
+
+    stop_leaf(child);
+}
+
+/// Signs in with the passkey held by `auth_client` and returns the `sub` (the
+/// VSID) of the ID token.
+async fn sign_in_and_read_sub(
+    client: &reqwest::Client,
+    base_url: &str,
+    auth_client: &mut WebauthnAuthenticator<SoftPasskey>,
+    origin: &url::Url,
+    username: &str,
+) -> String {
     let resp = client
         .post(format!("{base_url}/auth/login/begin"))
         .json(&json!({ "username": username, "client_id": "rotate-test-client" }))
         .send()
         .await
         .unwrap();
-    assert_eq!(
-        resp.status(),
-        200,
-        "login/begin should find the user under the new key"
-    );
+    assert_eq!(resp.status(), 200, "login/begin should find the user");
     let begin: serde_json::Value = resp.json().await.unwrap();
     let rcr: RequestChallengeResponse = serde_json::from_value(begin["challenge"].clone()).unwrap();
-    let assertion = auth_client.do_authentication(origin, rcr).unwrap();
+    let assertion = auth_client.do_authentication(origin.clone(), rcr).unwrap();
     let resp = client
         .post(format!("{base_url}/auth/login/finish"))
         .json(&json!({ "session_id": begin["session_id"], "credential": assertion }))
         .send()
         .await
         .unwrap();
-    assert_eq!(
-        resp.status(),
-        200,
-        "login/finish should succeed with the passkey created before rotation"
-    );
-
-    stop_leaf(child);
+    assert_eq!(resp.status(), 200, "login/finish should succeed");
+    let body: serde_json::Value = resp.json().await.unwrap();
+    let token = body["id_token"].as_str().expect("id_token");
+    let claims: jsonwebtoken::TokenData<serde_json::Value> =
+        jsonwebtoken::dangerous::insecure_decode(token).expect("id_token should decode as a JWT");
+    claims.claims["sub"].as_str().expect("sub").to_string()
 }
