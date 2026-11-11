@@ -32,7 +32,7 @@ use tower_http::set_header::SetResponseHeaderLayer;
 /// attached — is what actually covers every response `leaf` serves.
 /// `if_not_present` makes this a no-op for API routes, which already carry
 /// these headers from the inner layer (whose CSP value has since diverged
-/// from this one — see the `'unsafe-inline'` TODO below).
+/// from this one: see [`ui_csp`]).
 pub fn apply_ui_fallback(router: Router, dist: Option<&Path>) -> Router {
     let router = match dist {
         Some(path) => {
@@ -57,33 +57,109 @@ pub fn apply_ui_fallback(router: Router, dist: Option<&Path>) -> Router {
         ))
         .layer(SetResponseHeaderLayer::if_not_present(
             HeaderName::from_static("content-security-policy"),
-            // TODO(phases/backlog.md "CSP allows unsafe-inline — temporary"):
-            // `'unsafe-inline'` here is a known, tracked stopgap, not a
-            // considered security posture. Confirmed by loading the app in a
-            // real browser with this CSP actually enforced (it wasn't, until
-            // the fix this comment is part of): Qwik's static/SSG build DOES
-            // emit inline `<script>`/`<style>` tags (its resumability
-            // bootstrap) — contrary to what an earlier version of this
-            // comment (and brigid-api's copy of it) assumed. Without
-            // `unsafe-inline` the browser blocks them outright and the app
-            // never becomes interactive. `fonts.bunny.net` is the actual
-            // external font host `web` loads from. See the backlog entry for
-            // the real fix (build-time hash allowlist).
-            // img-src/connect-src additionally allow Unsplash: the login/
-            // register pages fetch a daily background photo directly from
-            // the browser (app/src/lib/unsplash.ts) — there's no app-side
-            // server to proxy it through, this binary serves the UI as
-            // static files.
-            HeaderValue::from_static(
-                "default-src 'self'; \
-                 script-src 'self' 'unsafe-inline'; \
-                 style-src 'self' 'unsafe-inline' https://fonts.bunny.net; \
-                 img-src 'self' data: https://images.unsplash.com; \
-                 font-src 'self' https://fonts.bunny.net; \
-                 connect-src 'self' https://api.unsplash.com; \
-                 frame-ancestors 'none'; \
-                 object-src 'none'; \
-                 base-uri 'self'",
-            ),
+            HeaderValue::from_str(&ui_csp(dist)).expect("CSP is ASCII"),
         ))
+}
+
+/// The hashes `app`'s build writes to `dist/csp-hashes.json` (app#3): the
+/// `'sha256-…'` source of each inline `<script>` and `<style>` it emitted.
+#[derive(serde::Deserialize)]
+struct CspHashes {
+    script: Vec<String>,
+    style: Vec<String>,
+}
+
+/// A CSP hash source as the manifest writes it: `'sha256-<base64>'`.
+/// Anything else is dropped rather than injected into the header.
+fn is_hash_source(s: &str) -> bool {
+    s.strip_prefix("'sha256-")
+        .and_then(|rest| rest.strip_suffix('\''))
+        .is_some_and(|b64| {
+            !b64.is_empty()
+                && b64
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '='))
+        })
+}
+
+/// The CSP of UI responses (core#20).
+///
+/// With `dist/csp-hashes.json`, inline scripts and styles are allowed by
+/// hash only: no `'unsafe-inline'`, so an injected script does not run.
+/// Without it (an older UI build, or no UI), falls back to the previous
+/// `'unsafe-inline'` policy and says so in the log.
+///
+/// `fonts.bunny.net` is the external font host the UI loads from; img-src and
+/// connect-src allow Unsplash, whose daily background photo the login and
+/// register pages fetch straight from the browser (app/src/lib/unsplash.ts).
+pub fn ui_csp(dist: Option<&Path>) -> String {
+    let hashes = dist.and_then(|d| {
+        let path = d.join("csp-hashes.json");
+        let text = std::fs::read_to_string(&path).ok()?;
+        match serde_json::from_str::<CspHashes>(&text) {
+            Ok(h) => Some(h),
+            Err(e) => {
+                tracing::warn!(path = %path.display(), error = %e, "unreadable CSP hash manifest");
+                None
+            }
+        }
+    });
+    let (script, style) = match hashes {
+        Some(h) => {
+            let keep = |v: Vec<String>| {
+                v.into_iter()
+                    .filter(|s| is_hash_source(s))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            };
+            (keep(h.script), keep(h.style))
+        }
+        None => {
+            if dist.is_some() {
+                tracing::warn!(
+                    "no dist/csp-hashes.json: UI served with 'unsafe-inline' (rebuild the UI)"
+                );
+            }
+            ("'unsafe-inline'".to_string(), "'unsafe-inline'".to_string())
+        }
+    };
+    format!(
+        "default-src 'self'; \
+         script-src 'self' {script}; \
+         style-src 'self' {style} https://fonts.bunny.net; \
+         img-src 'self' data: https://images.unsplash.com; \
+         font-src 'self' https://fonts.bunny.net; \
+         connect-src 'self' https://api.unsplash.com; \
+         frame-ancestors 'none'; \
+         object-src 'none'; \
+         base-uri 'self'"
+    )
+}
+
+#[cfg(test)]
+mod csp_tests {
+    use super::*;
+
+    #[test]
+    fn hashes_replace_unsafe_inline() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("csp-hashes.json"),
+            r#"{"script":["'sha256-AAAA'","'unsafe-eval'","x; script-src *"],"style":["'sha256-BB+/='"],"pages":[]}"#,
+        )
+        .unwrap();
+        let csp = ui_csp(Some(dir.path()));
+        assert!(csp.contains("script-src 'self' 'sha256-AAAA';"), "{csp}");
+        assert!(csp.contains("style-src 'self' 'sha256-BB+/=' https://fonts.bunny.net;"));
+        assert!(!csp.contains("unsafe-inline"));
+        assert!(!csp.contains("unsafe-eval"), "only hash sources are copied");
+        assert!(!csp.contains("script-src *"));
+    }
+
+    #[test]
+    fn without_a_manifest_falls_back_to_unsafe_inline() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(ui_csp(Some(dir.path())).contains("script-src 'self' 'unsafe-inline'"));
+        assert!(ui_csp(None).contains("script-src 'self' 'unsafe-inline'"));
+    }
 }
