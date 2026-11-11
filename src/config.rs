@@ -107,6 +107,17 @@ pub struct SecurityConfig {
     /// Allowed CORS origins (e.g. `["https://example.com"]`).
     #[serde(default)]
     pub cors_origins: Vec<String>,
+
+    /// Rate-limit per client IP taken from `X-Forwarded-For` instead of the
+    /// TCP peer address.
+    ///
+    /// Set to `true` when `leaf` is only reachable through a reverse proxy
+    /// that overwrites that header (Caddy does): every request then comes
+    /// from the proxy's address, and without this all clients share a single
+    /// rate-limit bucket. Leave `false` when clients connect to `leaf`
+    /// directly, where they could forge the header to dodge the limit.
+    #[serde(default)]
+    pub trust_forwarded_for: bool,
 }
 
 impl Default for SecurityConfig {
@@ -114,6 +125,7 @@ impl Default for SecurityConfig {
         Self {
             session_ttl_seconds: default_session_ttl(),
             cors_origins: Vec::new(),
+            trust_forwarded_for: false,
         }
     }
 }
@@ -205,6 +217,7 @@ mod tests {
         assert_eq!(cfg.server.port, 8080);
         assert_eq!(cfg.security.session_ttl_seconds, 3600);
         assert!(cfg.security.cors_origins.is_empty());
+        assert!(!cfg.security.trust_forwarded_for);
         assert!(cfg.server.tls_cert.is_none());
         assert!(cfg.server.tls_key.is_none());
     }
@@ -294,6 +307,7 @@ mod tests {
             jail.set_env("LEAF_SERVER__DOMAIN", "env.example.com");
             jail.set_env("LEAF_DATABASE__PATH", "/tmp/env-test.db");
             jail.set_env("LEAF_SECURITY__SESSION_TTL_SECONDS", "7200");
+            jail.set_env("LEAF_SECURITY__TRUST_FORWARDED_FOR", "true");
 
             let cfg: Config = Figment::new()
                 .merge(Serialized::defaults(minimal()))
@@ -305,6 +319,7 @@ mod tests {
             assert_eq!(cfg.server.domain, "env.example.com");
             assert_eq!(cfg.database.path, "/tmp/env-test.db");
             assert_eq!(cfg.security.session_ttl_seconds, 7200);
+            assert!(cfg.security.trust_forwarded_for);
             Ok(())
         });
     }

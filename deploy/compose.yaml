@@ -78,6 +78,9 @@ services:
       # interpolates `${BRIGID_DOMAIN}` inside single quotes, so we get
       # secret-free substitution without having to escape every inner `"`.
       LEAF_SECURITY__CORS_ORIGINS: '["https://${BRIGID_DOMAIN}"]'
+      # leaf is only reachable through Caddy, which overwrites
+      # X-Forwarded-For: rate-limit on that address, not on Caddy's own.
+      LEAF_SECURITY__TRUST_FORWARDED_FOR: "true"
     networks:
       - internal
     expose:
