@@ -15,11 +15,11 @@ path = "src/lib.rs"
 
 [dependencies]
 # brig·id core crates (git dep pointing to the core repository)
-brigid-api = { git = "https://github.com/brig-id/core", rev = "d2120661b02900211d3b9ad654ce24229b6c171d", package = "brigid-api" }
-brigid-store = { git = "https://github.com/brig-id/core", rev = "d2120661b02900211d3b9ad654ce24229b6c171d", package = "brigid-store" }
-brigid-identity = { git = "https://github.com/brig-id/core", rev = "d2120661b02900211d3b9ad654ce24229b6c171d", package = "brigid-identity" }
-brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "d2120661b02900211d3b9ad654ce24229b6c171d", package = "brigid-webauthn" }
-brigid-oidc = { git = "https://github.com/brig-id/core", rev = "d2120661b02900211d3b9ad654ce24229b6c171d", package = "brigid-oidc" }
+brigid-api = { git = "https://github.com/brig-id/core", rev = "905b0ff836b7d00a4b056a500fac2f3a5fb197df", package = "brigid-api" }
+brigid-store = { git = "https://github.com/brig-id/core", rev = "905b0ff836b7d00a4b056a500fac2f3a5fb197df", package = "brigid-store" }
+brigid-identity = { git = "https://github.com/brig-id/core", rev = "905b0ff836b7d00a4b056a500fac2f3a5fb197df", package = "brigid-identity" }
+brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "905b0ff836b7d00a4b056a500fac2f3a5fb197df", package = "brigid-webauthn" }
+brigid-oidc = { git = "https://github.com/brig-id/core", rev = "905b0ff836b7d00a4b056a500fac2f3a5fb197df", package = "brigid-oidc" }
 
 # Cryptographic primitives
 brigid-crypto = { git = "https://github.com/brig-id/crypto", tag = "v0.1.0" }
@@ -57,7 +57,6 @@ tower = { version = "0.5", features = ["util"] }
 
 # E2E smoke tests (tests/smoke.rs) — real HTTP against a spawned `leaf`
 # subprocess, exercising a full WebAuthn ceremony via a software passkey.
-jsonwebtoken = "10"
 reqwest = { version = "0.13", features = ["json"] }
 webauthn-authenticator-rs = { version = "0.5", features = ["softpasskey"] }
 webauthn-rs = { version = "0.5", features = ["danger-allow-state-serialisation"] }

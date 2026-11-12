@@ -344,7 +344,11 @@ async fn main() {
         .collect();
 
     let mut state = AppState::new(store, webauthn, oidc_key, base_url, vsid_salt)
-        .with_retired_oidc_keys(retired_oidc_keys);
+        .with_retired_oidc_keys(retired_oidc_keys)
+        .with_session_timeouts(
+            Duration::from_secs(cfg.security.session_ttl_seconds),
+            Duration::from_secs(cfg.security.session_lifetime_seconds),
+        );
     state.trust_forwarded_for = cfg.security.trust_forwarded_for;
     let state = Arc::new(state);
     let api_router = build_router(state, &cors_origins);
@@ -411,7 +415,8 @@ async fn main() {
                 %addr,
                 domain = %cfg.server.domain,
                 tls = true,
-                session_ttl_secs = cfg.security.session_ttl_seconds,
+                session_idle_secs = cfg.security.session_ttl_seconds,
+                session_lifetime_secs = cfg.security.session_lifetime_seconds,
                 "brig·id leaf starting"
             );
             let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert, key)
@@ -428,7 +433,8 @@ async fn main() {
                 %addr,
                 domain = %cfg.server.domain,
                 tls = false,
-                session_ttl_secs = cfg.security.session_ttl_seconds,
+                session_idle_secs = cfg.security.session_ttl_seconds,
+                session_lifetime_secs = cfg.security.session_lifetime_seconds,
                 "TLS not configured — running plain HTTP (use Caddy or configure tls_cert/tls_key)"
             );
             axum_server::bind(addr)

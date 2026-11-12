@@ -13,8 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `/auth/recovery/*`), passkey-only signup with a generated, hidden username
   that signs in in the same ceremony, from brig-id/core#78.
 
+- `security.session_lifetime_seconds` (default 43200, 12 h): an account
+  session ends this long after sign-in, used or not.
+
 ### Changed
 
+- **Account sessions live in an HttpOnly cookie** (ADR-005 §1, from
+  brig-id/core#80): `__Host-brigid_session` over HTTPS, server-side session,
+  no token in the browser's storage and no account id in URLs.
+  `security.session_ttl_seconds` is now what it says: the idle timeout of a
+  session. Requests that change something must come from the server's own
+  origin. No token is issued for a caller-supplied `client_id` anymore, and
+  `/.well-known/openid-configuration` is gone until the relying-party flow
+  exists (ADR-005 §3). Existing sessions end at the upgrade.
 - Identities and accounts are identified by UUIDs (ADR-007): the database
   migration drops the account and identity DID columns, and VSIDs are derived
   from the identity UUID. **Account sessions issued before the upgrade end:
