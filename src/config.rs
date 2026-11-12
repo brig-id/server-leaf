@@ -100,9 +100,15 @@ impl Default for DatabaseConfig {
 /// Security settings.
 #[derive(Debug, Deserialize)]
 pub struct SecurityConfig {
-    /// ID token lifetime in seconds (default: 3600).
+    /// An account session ends after this many seconds without use
+    /// (default: 3600). Each request pushes the deadline back.
     #[serde(default = "default_session_ttl")]
     pub session_ttl_seconds: u64,
+
+    /// An account session ends this many seconds after the passkey ceremony
+    /// that opened it, used or not (default: 43200, 12 hours).
+    #[serde(default = "default_session_lifetime")]
+    pub session_lifetime_seconds: u64,
 
     /// Allowed CORS origins (e.g. `["https://example.com"]`).
     #[serde(default)]
@@ -124,6 +130,7 @@ impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
             session_ttl_seconds: default_session_ttl(),
+            session_lifetime_seconds: default_session_lifetime(),
             cors_origins: Vec::new(),
             trust_forwarded_for: false,
         }
@@ -144,6 +151,10 @@ fn default_db_path() -> String {
 
 fn default_session_ttl() -> u64 {
     3600
+}
+
+fn default_session_lifetime() -> u64 {
+    12 * 3600
 }
 
 /// Builds the shared TOML+env figment used by both [`load`] and
