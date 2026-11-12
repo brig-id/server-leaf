@@ -7,36 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-13
+
 ### Added
 
 - Account recovery with a recovery code (`/account/recovery-code`,
-  `/auth/recovery/*`), passkey-only signup with a generated, hidden username
-  that signs in in the same ceremony, from brig-id/core#78.
-
+  `/auth/recovery/*`), and passkey-only signup with a generated, hidden
+  username, signed in by the same ceremony (brig-id/core#78).
 - `security.session_lifetime_seconds` (default 43200, 12 h): an account
   session ends this long after sign-in, used or not.
+- The bundled UI is app's current `main`: sign-in with the passkey alone
+  (this server or another by domain), one-button signup with an onboarding
+  page (passkey name from its provider, recovery code), "I lost my passkeys",
+  and no session data in the browser's storage.
 
 ### Changed
 
-- **Account sessions live in an HttpOnly cookie** (ADR-005 §1, from
-  brig-id/core#80): `__Host-brigid_session` over HTTPS, server-side session,
-  no token in the browser's storage and no account id in URLs.
-  `security.session_ttl_seconds` is now what it says: the idle timeout of a
-  session. Requests that change something must come from the server's own
-  origin. No token is issued for a caller-supplied `client_id` anymore, and
-  `/.well-known/openid-configuration` is gone until the relying-party flow
-  exists (ADR-005 §3). Existing sessions end at the upgrade.
+- **Account sessions live in an HttpOnly cookie** (ADR-005 §1, brig-id/core#80):
+  `__Host-brigid_session` over HTTPS, server-side session, no token in the
+  browser's storage and no account id in URLs. `security.session_ttl_seconds`
+  is now the idle timeout of a session. Requests that change something must
+  come from the server's own origin. No token is issued for a caller-supplied
+  `client_id` anymore, and `/.well-known/openid-configuration` is gone until
+  the relying-party flow exists (ADR-005 §3).
+- Registration asks for discoverable passkeys (`residentKey: required`):
+  signing in takes no username, so the passkey must name the account.
 - Identities and accounts are identified by UUIDs (ADR-007): the database
   migration drops the account and identity DID columns, and VSIDs are derived
-  from the identity UUID. **Account sessions issued before the upgrade end:
-  users sign in again.** No relying party holds a VSID yet.
-
-### Changed
-
+  from the identity UUID. No relying party holds a VSID yet.
 - `core` update: generic code comes from helpers4. Three checks are stricter:
   the `Bearer` scheme is matched case-insensitively and only RFC 6750 token
   characters are accepted; the server part of a username cannot be an IP
   address; an icon name cannot start or end with a hyphen.
+
+### Upgrading
+
+- Three database migrations run at start (recovery codes, DID columns
+  dropped, sessions). **Every session in progress ends: users sign in again.**
 
 ## [0.2.1] - 2026-11-11
 
