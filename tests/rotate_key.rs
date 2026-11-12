@@ -63,7 +63,7 @@ async fn rotate_key_cli_round_trip_login_works_with_new_key() {
 
     let port = free_port();
     let base_url = format!("http://localhost:{port}");
-    let client = reqwest::Client::new();
+    let client = client_for(&base_url);
     let username = "rotate-test-user@localhost";
 
     // -- Register a real user against a `leaf` running with the old key --
@@ -91,10 +91,10 @@ async fn rotate_key_cli_round_trip_login_works_with_new_key() {
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status(), 200, "register/finish should succeed");
+    assert_eq!(resp.status(), 204, "register/finish should succeed");
 
-    let sub_before =
-        sign_in_and_read_sub(&client, &base_url, &mut auth_client, &origin, username).await;
+    let identities_before =
+        sign_in_and_list_identities(&client, &base_url, &mut auth_client, &origin, username).await;
 
     stop_leaf(child);
 
@@ -135,29 +135,46 @@ async fn rotate_key_cli_round_trip_login_works_with_new_key() {
     // connection to the *first* leaf process on this same port, which is
     // now dead — reusing it here would race a stale pooled connection
     // against the just-restarted server instead of actually testing it.
-    let client = reqwest::Client::new();
-    let sub_after =
-        sign_in_and_read_sub(&client, &base_url, &mut auth_client, &origin, username).await;
+    let client = client_for(&base_url);
+    let identities_after =
+        sign_in_and_list_identities(&client, &base_url, &mut auth_client, &origin, username).await;
     assert_eq!(
-        sub_before, sub_after,
-        "the VSID secret is stored: rotating the master key must not change the `sub`"
+        identities_before, identities_after,
+        "the account's identities read the same under the new key"
     );
+    assert_eq!(identities_before.len(), 3, "the starter identities");
 
     stop_leaf(child);
 }
 
-/// Signs in with the passkey held by `auth_client` and returns the `sub` (the
-/// VSID) of the ID token.
-async fn sign_in_and_read_sub(
+/// A client that sends this server's `Origin`, as a browser does on every
+/// request that changes something (ADR-005).
+fn client_for(base_url: &str) -> reqwest::Client {
+    reqwest::Client::builder()
+        .default_headers(
+            [(
+                reqwest::header::ORIGIN,
+                reqwest::header::HeaderValue::from_str(base_url).unwrap(),
+            )]
+            .into_iter()
+            .collect(),
+        )
+        .build()
+        .unwrap()
+}
+
+/// Signs in with the passkey held by `auth_client` and returns the account's
+/// identities (id and name): decrypting them needs the current master key.
+async fn sign_in_and_list_identities(
     client: &reqwest::Client,
     base_url: &str,
     auth_client: &mut WebauthnAuthenticator<SoftPasskey>,
     origin: &url::Url,
     username: &str,
-) -> String {
+) -> Vec<(String, String)> {
     let resp = client
         .post(format!("{base_url}/auth/login/begin"))
-        .json(&json!({ "username": username, "client_id": "rotate-test-client" }))
+        .json(&json!({ "username": username }))
         .send()
         .await
         .unwrap();
@@ -171,12 +188,32 @@ async fn sign_in_and_read_sub(
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status(), 200, "login/finish should succeed");
-    let body: serde_json::Value = resp.json().await.unwrap();
-    let token = body["id_token"].as_str().expect("id_token");
-    let claims: jsonwebtoken::TokenData<serde_json::Value> =
-        jsonwebtoken::dangerous::insecure_decode(token).expect("id_token should decode as a JWT");
-    claims.claims["sub"].as_str().expect("sub").to_string()
+    assert_eq!(resp.status(), 204, "login/finish should succeed");
+    let cookie = resp.headers()[reqwest::header::SET_COOKIE]
+        .to_str()
+        .unwrap()
+        .split(';')
+        .next()
+        .unwrap()
+        .to_string();
+    let resp = client
+        .get(format!("{base_url}/account/identities"))
+        .header(reqwest::header::COOKIE, cookie)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let list: serde_json::Value = resp.json().await.unwrap();
+    list.as_array()
+        .unwrap()
+        .iter()
+        .map(|i| {
+            (
+                i["id"].as_str().unwrap().to_string(),
+                i["name"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect()
 }
 
 /// The server asks for a discoverable passkey (`residentKey: required`);

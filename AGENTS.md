@@ -55,7 +55,8 @@ path = "/data/brigid.db"
 
 [security]
 # BRIGID_MASTER_KEY comes from env — never here
-session_ttl_seconds = 3600
+session_ttl_seconds = 3600        # account session: ends after this long unused
+session_lifetime_seconds = 43200  # ...and this long after sign-in in any case
 cors_origins = ["https://example.com"]
 ```
 

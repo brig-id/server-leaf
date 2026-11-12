@@ -91,10 +91,38 @@ fn start_leaf_with(extra_env: &[(&str, &str)]) -> TestServer {
         // 127.0.0.1 here would mismatch and fail with a `Security` error.
         // "localhost" resolves to 127.0.0.1 via /etc/hosts either way.
         base_url: format!("http://localhost:{port}"),
-        client: reqwest::Client::new(),
+        // A browser sends its page's origin on every request that changes
+        // something, and the API refuses any other (ADR-005).
+        client: reqwest::Client::builder()
+            .default_headers(
+                [(
+                    reqwest::header::ORIGIN,
+                    reqwest::header::HeaderValue::from_str(&format!("http://localhost:{port}"))
+                        .unwrap(),
+                )]
+                .into_iter()
+                .collect(),
+            )
+            .build()
+            .unwrap(),
         _db_dir: db_dir,
         _ui_dir: ui_dir,
     }
+}
+
+/// The session cookie (`name=value`) a response sets; checks its attributes.
+fn session_cookie(resp: &reqwest::Response) -> String {
+    let set = resp
+        .headers()
+        .get(reqwest::header::SET_COOKIE)
+        .expect("the response opens a session")
+        .to_str()
+        .unwrap();
+    assert!(
+        set.contains("HttpOnly") && set.contains("SameSite=Strict"),
+        "{set}"
+    );
+    set.split(';').next().unwrap().to_string()
 }
 
 async fn json_body(resp: reqwest::Response) -> Value {
@@ -120,7 +148,7 @@ async fn health_returns_200() {
 }
 
 #[tokio::test]
-async fn openid_configuration_has_issuer() {
+async fn no_openid_configuration_before_the_relying_party_flow() {
     let server = start_leaf();
     let resp = server
         .client
@@ -131,11 +159,17 @@ async fn openid_configuration_has_issuer() {
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status(), 200);
-    let body = json_body(resp).await;
+    // ADR-005 §3: it comes back with the Authorization Code flow. Unknown
+    // paths fall back to the UI's HTML, never to a JSON configuration.
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
     assert!(
-        body["issuer"].is_string(),
-        "expected `issuer` field: {body}"
+        !content_type.contains("json"),
+        "no OpenID configuration served: {content_type}"
     );
 }
 
@@ -192,12 +226,11 @@ async fn login_page_returns_html() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn webauthn_register_and_login_round_trip_with_valid_oidc_token() {
+async fn webauthn_register_and_login_round_trip_opens_a_session() {
     let server = start_leaf();
     let origin = url::Url::parse(&server.base_url).unwrap();
     let mut auth_client = WebauthnAuthenticator::new(SoftPasskey::new(true));
     let username = "smoke-alice@localhost";
-    let client_id = "smoke-test-client";
 
     // -- register/begin --
     let resp = server
@@ -226,13 +259,13 @@ async fn webauthn_register_and_login_round_trip_with_valid_oidc_token() {
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status(), 200, "register/finish should succeed");
+    assert_eq!(resp.status(), 204, "register/finish should succeed");
 
     // -- login/begin --
     let resp = server
         .client
         .post(format!("{}/auth/login/begin", server.base_url))
-        .json(&json!({ "username": username, "client_id": client_id }))
+        .json(&json!({ "username": username }))
         .send()
         .await
         .unwrap();
@@ -254,38 +287,21 @@ async fn webauthn_register_and_login_round_trip_with_valid_oidc_token() {
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status(), 200, "login/finish should succeed");
-    let login = json_body(resp).await;
-    let id_token = login["id_token"]
-        .as_str()
-        .expect("id_token should be a string");
-    let user_id = login["user_id"]
-        .as_str()
-        .expect("user_id should be a string");
-
-    // Signature verification of the OIDC issuer key is already covered by
-    // core's own test suites; this is an HTTP-level smoke test, so decode
-    // without verifying and just check the claims made it through intact.
-    //
-    // `sub` is the VSID — a per-relying-party pseudonymous identifier
-    // (brigid_identity::derive_vsid_salt), deliberately *not* the same value
-    // as `user_id` (the raw internal UUID used for API operations like
-    // DELETE /auth/passkeys). They're expected to differ by design.
-    let claims: jsonwebtoken::TokenData<Value> = jsonwebtoken::dangerous::insecure_decode(id_token)
-        .expect("id_token should decode as a JWT");
-    let sub = claims.claims["sub"]
-        .as_str()
-        .expect("`sub` claim should be a string");
-    assert!(!sub.is_empty(), "`sub` (VSID) should not be empty");
-    assert_ne!(
-        sub, user_id,
-        "`sub` (VSID) is a pseudonymous identifier and should differ from the raw user_id"
+    // A session in an HttpOnly cookie, never a token (ADR-005).
+    assert_eq!(resp.status(), 204, "login/finish should succeed");
+    let cookie = session_cookie(&resp);
+    assert!(
+        resp.text().await.unwrap().is_empty(),
+        "no token in the body"
     );
-    assert_eq!(
-        claims.claims["aud"].as_str(),
-        Some(client_id),
-        "`aud` should be the client_id passed to login/begin"
-    );
+    let resp = server
+        .client
+        .get(format!("{}/auth/session", server.base_url))
+        .header(reqwest::header::COOKIE, &cookie)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "the session cookie opens the account");
 }
 
 // ---------------------------------------------------------------------------
@@ -323,7 +339,7 @@ async fn deleting_the_only_passkey_is_refused() {
     let resp = server
         .client
         .post(format!("{}/auth/login/begin", server.base_url))
-        .json(&json!({ "username": username, "client_id": "smoke-test-client" }))
+        .json(&json!({ "username": username, }))
         .send()
         .await
         .unwrap();
@@ -337,18 +353,13 @@ async fn deleting_the_only_passkey_is_refused() {
         .send()
         .await
         .unwrap();
-    let login = json_body(resp).await;
-    let token = login["id_token"].as_str().unwrap();
-    let user_id = login["user_id"].as_str().unwrap();
+    let cookie = session_cookie(&resp);
 
     // List passkeys to get a real credential id to delete.
     let resp = server
         .client
-        .get(format!(
-            "{}/auth/passkeys?user_id={user_id}",
-            server.base_url
-        ))
-        .bearer_auth(token)
+        .get(format!("{}/auth/passkeys", server.base_url))
+        .header(reqwest::header::COOKIE, &cookie)
         .send()
         .await
         .unwrap();
@@ -368,8 +379,7 @@ async fn deleting_the_only_passkey_is_refused() {
     let resp = server
         .client
         .delete(format!("{}/auth/passkeys/{passkey_id}", server.base_url))
-        .bearer_auth(token)
-        .json(&json!({ "user_id": user_id }))
+        .header(reqwest::header::COOKIE, &cookie)
         .send()
         .await
         .unwrap();
@@ -394,7 +404,7 @@ async fn twenty_first_auth_request_returns_429() {
         last_status = server
             .client
             .post(format!("{}/auth/login/begin", server.base_url))
-            .json(&json!({ "username": "nobody@localhost", "client_id": "smoke-test-client" }))
+            .json(&json!({ "username": "nobody@localhost", }))
             .send()
             .await
             .unwrap()
@@ -415,7 +425,7 @@ async fn hammer_login_begin(server: &TestServer, client_ip: &str, count: usize) 
             .client
             .post(format!("{}/auth/login/begin", server.base_url))
             .header("x-forwarded-for", client_ip)
-            .json(&json!({ "username": "nobody@localhost", "client_id": "smoke-test-client" }))
+            .json(&json!({ "username": "nobody@localhost", }))
             .send()
             .await
             .unwrap()

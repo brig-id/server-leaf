@@ -399,7 +399,7 @@ dependencies = [
 [[package]]
 name = "brigid-api"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=d2120661b02900211d3b9ad654ce24229b6c171d#d2120661b02900211d3b9ad654ce24229b6c171d"
+source = "git+https://github.com/brig-id/core?rev=905b0ff836b7d00a4b056a500fac2f3a5fb197df#905b0ff836b7d00a4b056a500fac2f3a5fb197df"
 dependencies = [
  "axum",
  "brigid-did",
@@ -445,7 +445,7 @@ dependencies = [
 [[package]]
 name = "brigid-did"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=d2120661b02900211d3b9ad654ce24229b6c171d#d2120661b02900211d3b9ad654ce24229b6c171d"
+source = "git+https://github.com/brig-id/core?rev=905b0ff836b7d00a4b056a500fac2f3a5fb197df#905b0ff836b7d00a4b056a500fac2f3a5fb197df"
 dependencies = [
  "bs58",
  "serde",
@@ -455,7 +455,7 @@ dependencies = [
 [[package]]
 name = "brigid-identity"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=d2120661b02900211d3b9ad654ce24229b6c171d#d2120661b02900211d3b9ad654ce24229b6c171d"
+source = "git+https://github.com/brig-id/core?rev=905b0ff836b7d00a4b056a500fac2f3a5fb197df#905b0ff836b7d00a4b056a500fac2f3a5fb197df"
 dependencies = [
  "base64ct",
  "brigid-crypto",
@@ -471,14 +471,14 @@ dependencies = [
 [[package]]
 name = "brigid-oidc"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=d2120661b02900211d3b9ad654ce24229b6c171d#d2120661b02900211d3b9ad654ce24229b6c171d"
+source = "git+https://github.com/brig-id/core?rev=905b0ff836b7d00a4b056a500fac2f3a5fb197df#905b0ff836b7d00a4b056a500fac2f3a5fb197df"
 dependencies = [
  "base64ct",
  "brigid-identity",
  "ed25519-dalek 3.0.0",
  "getrandom 0.4.3",
  "helpers4",
- "jsonwebtoken 11.1.0",
+ "jsonwebtoken",
  "pkcs8 0.11.0",
  "rand_core 0.10.1",
  "serde",
@@ -492,11 +492,13 @@ dependencies = [
 [[package]]
 name = "brigid-store"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=d2120661b02900211d3b9ad654ce24229b6c171d#d2120661b02900211d3b9ad654ce24229b6c171d"
+source = "git+https://github.com/brig-id/core?rev=905b0ff836b7d00a4b056a500fac2f3a5fb197df#905b0ff836b7d00a4b056a500fac2f3a5fb197df"
 dependencies = [
+ "base64ct",
  "brigid-crypto",
  "brigid-identity",
  "helpers4",
+ "sha3 0.11.0",
  "sqlx",
  "thiserror 2.0.21",
  "time",
@@ -508,7 +510,7 @@ dependencies = [
 [[package]]
 name = "brigid-webauthn"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=d2120661b02900211d3b9ad654ce24229b6c171d#d2120661b02900211d3b9ad654ce24229b6c171d"
+source = "git+https://github.com/brig-id/core?rev=905b0ff836b7d00a4b056a500fac2f3a5fb197df#905b0ff836b7d00a4b056a500fac2f3a5fb197df"
 dependencies = [
  "brigid-crypto",
  "brigid-identity",
@@ -1937,22 +1939,6 @@ dependencies = [
 
 [[package]]
 name = "jsonwebtoken"
-version = "10.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0529410abe238729a60b108898784df8984c87f6054c9c4fcacc47e4803c1ce1"
-dependencies = [
- "base64 0.22.1",
- "getrandom 0.2.17",
- "js-sys",
- "pem",
- "serde",
- "serde_json",
- "signature 2.2.0",
- "simple_asn1",
-]
-
-[[package]]
-name = "jsonwebtoken"
 version = "11.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e75fe14a82d81e5f5af639997db37d8b96045938a7ac6ab18cdbe1c7467e05e1"
@@ -2019,7 +2005,6 @@ dependencies = [
  "clap",
  "figment",
  "http-body-util",
- "jsonwebtoken 10.3.0",
  "reqwest",
  "rustls",
  "serde",
