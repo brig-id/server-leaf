@@ -31,31 +31,15 @@
 # dist/ so that the runtime stage still copies a valid (though empty) path.
 # In that case, set BRIGID_SERVER__UI_DIST_DIR to an actual dist in production.
 #
-# The app repo depends on the private Web Awesome Pro npm registry. Pass its
-# token via a BuildKit secret mount — never a --build-arg, which would land
-# the token in the image's build history:
-#   docker buildx build --secret id=npm_token,env=WEBAWESOME_NPM_TOKEN ...
-#
-# UNSPLASH_ACCESS_KEY is the opposite case: it's Unsplash's own public/
-# client-facing key (their docs show it embedded client-side in "Demo" apps)
-# and is *meant* to ship inside the built JS bundle (app/src/lib/unsplash.ts
-# fetches Unsplash directly from the browser). A plain ARG is correct here —
-# a --secret mount would keep it out of the image, which is the wrong
-# property for a value that must end up in client-visible output anyway.
+# The interface builds from the public npm registry alone: no token, no key.
 FROM node:22-slim AS ui-builder
 WORKDIR /ui
 # Pin the pnpm version matching the app repo's packageManager field.
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
-ARG UNSPLASH_ACCESS_KEY=""
-ENV UNSPLASH_ACCESS_KEY=$UNSPLASH_ACCESS_KEY
 COPY ui/ ./
-RUN --mount=type=secret,id=npm_token \
-    if [ -f package.json ]; then \
-      if [ -f /run/secrets/npm_token ]; then \
-        echo "//npm.cloudsmith.io/fortawesome/webawesome-pro/:_authToken=$(cat /run/secrets/npm_token)" >> /root/.npmrc; \
-      fi && \
+RUN if [ -f package.json ]; then \
       pnpm install --frozen-lockfile && \
       pnpm build; \
     else \

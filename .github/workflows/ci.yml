@@ -31,17 +31,11 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   docker:
-    # Custom (not a brig-id/.github reusable workflow): validates that the
-    # production Dockerfile still builds with the real brig-id/app UI
-    # embedded (not just the ui/.gitkeep placeholder). Build-only — no
-    # registry destination has been decided yet, so this doesn't push.
-    #
-    # GitHub withholds Actions secrets from workflow runs triggered by
-    # Dependabot, so the "Checkout app (Qwik UI)" step below is skipped for
-    # those runs — the UI stage falls back to the committed ui/.gitkeep
-    # placeholder instead of failing on the missing npm_token. The real UI
-    # build still runs on every push to main/dev/* once a dependabot PR is
-    # merged, so coverage isn't lost, only deferred past the PR.
+    # Its own job, not a reusable workflow of brig-id/.github: checks that
+    # the production Dockerfile still builds with the real interface
+    # (brig-id/app) embedded, not just the ui/.gitkeep placeholder. The
+    # interface builds from the public npm registry, with no secret.
+    # Build-only: nothing is pushed here.
     name: Docker build (seedling + app UI embedded)
     runs-on: ubuntu-latest
     permissions:
@@ -53,7 +47,6 @@ jobs:
           persist-credentials: false
 
       - name: Checkout app (Qwik UI)
-        if: github.actor != 'dependabot[bot]'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -62,7 +55,7 @@ jobs:
           # floating `main` means two builds of the same server-seedling commit
           # could embed different UI code depending on when they ran. Bump
           # deliberately when app ships a change meant to land in seedling.
-          ref: c54f42f0a8714452cb772788907cc44f40a22650 # main @ 2026-11-13
+          ref: 10f9f5d9c8afce2c1f21e7eb7a4b2dc8948f019b # feat/step-1 @ 2026-11-13 (app#63)
           path: ui
 
       - name: Set up Docker Buildx
@@ -75,8 +68,6 @@ jobs:
           push: false
           load: true
           tags: seedling:ci
-          secrets: |
-            npm_token=${{ secrets.WEBAWESOME_NPM_TOKEN }}
 
       - name: Run the binary in the image
         # Building is not enough: a builder/runtime glibc mismatch only shows
@@ -115,7 +106,7 @@ jobs:
           # bumping. Once app/core/crypto have their own tagged releases,
           # this should point at the app tag that belongs to this seedling
           # release rather than a bare commit.
-          ref: c54f42f0a8714452cb772788907cc44f40a22650 # main @ 2026-11-13
+          ref: 10f9f5d9c8afce2c1f21e7eb7a4b2dc8948f019b # feat/step-1 @ 2026-11-13 (app#63)
           path: ui
 
       - name: Set up QEMU (cross-arch emulation for the arm64 build)
@@ -137,13 +128,6 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          secrets: |
-            npm_token=${{ secrets.WEBAWESOME_NPM_TOKEN }}
-          # UNSPLASH_ACCESS_KEY is a plain build-arg, not a --secret: it's
-          # meant to end up in the built JS bundle (see the Dockerfile
-          # comment on the ui-builder stage), unlike npm_token above.
-          build-args: |
-            UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
           tags: |
             ghcr.io/brig-id/seedling:${{ github.ref_name }}
             ghcr.io/brig-id/seedling:latest

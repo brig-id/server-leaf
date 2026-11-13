@@ -19,19 +19,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Licence: AGPL-3.0-or-later** (was LGPL-3.0-or-later). Released versions
   keep the licence they were published under.
 - The server's DID document (`/.well-known/did.json`) is no longer served.
+- **The Content Security Policy of the interface names no other origin**:
+  the font host and the photo API it used to allow are gone, with the
+  interface that needed them (brig-id/app#63). `form-action 'self'` is added.
+  A test fails if a scheme, a host or a wildcard comes back into it.
+- The image is built with no secret: the interface no longer needs a
+  registry token nor an API key.
 
 ### Added
 
 - `security.signup_open` (default `true`): `false` closes the creation of
   accounts; sign-in and recovery are untouched.
 
-- Websites can sign people in through `leaf` (brig-id/core#92, ADR-005 §2):
+- Websites can sign people in through `seedling` (brig-id/core#92):
   `/authorize`, `/token` and `/.well-known/openid-configuration` are served.
   Authorization Code flow with PKCE (`S256`, mandatory), ID tokens signed
   with EdDSA whose only statement about the person is an identifier for that
   site.
-- `leaf client add --name <name> --redirect-uri <uri> [--public]`,
-  `leaf client list` and `leaf client remove <client_id>` register the sites
+- `seedling client add --name <name> --redirect-uri <uri> [--public]`,
+  `seedling client list` and `seedling client remove <client_id>` register the sites
   that may do so. `add` prints the `client_id` and, for a site with a secret,
   the `client_secret`, once: only its hash is stored.
 
