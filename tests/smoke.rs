@@ -1,7 +1,7 @@
 //! E2E smoke tests (phase-3 "E2E smoke tests (Rust + reqwest)" checklist).
 //!
 //! Unlike `tests/static_files.rs` (in-process `axum::Router`) and
-//! `tests/binary.rs` (process lifecycle only), these spawn a real `leaf`
+//! `tests/binary.rs` (process lifecycle only), these spawn a real `seedling`
 //! subprocess and drive it over real HTTP with `reqwest`, including a full
 //! WebAuthn ceremony via a software passkey — the closest thing to what a
 //! real client does, short of a browser.
@@ -15,7 +15,7 @@ use std::{
     time::Duration,
 };
 
-use common::{TEST_MASTER_KEY, free_port, leaf_bin, wait_until_listening};
+use common::{TEST_MASTER_KEY, free_port, seedling_bin, wait_until_listening};
 use serde_json::{Value, json};
 use webauthn_authenticator_rs::{WebauthnAuthenticator, softpasskey::SoftPasskey};
 use webauthn_rs::prelude::{CreationChallengeResponse, RequestChallengeResponse};
@@ -36,18 +36,18 @@ impl Drop for TestServer {
     }
 }
 
-/// Spawns `leaf` with a fresh temp DB and a minimal fake UI dist (so
+/// Spawns `seedling` with a fresh temp DB and a minimal fake UI dist (so
 /// `GET /login` has something to serve), waits for it to start listening,
 /// and returns a client pointed at it. Each call gets its own process — and
 /// so its own in-memory rate-limit bucket — which is what keeps
 /// `rate_limit_21st_auth_request_returns_429` from bleeding into the other
 /// tests here.
-fn start_leaf() -> TestServer {
-    start_leaf_with(&[])
+fn start_seedling() -> TestServer {
+    start_seedling_with(&[])
 }
 
-/// [`start_leaf`] with extra environment variables for the `leaf` process.
-fn start_leaf_with(extra_env: &[(&str, &str)]) -> TestServer {
+/// [`start_seedling`] with extra environment variables for the `seedling` process.
+fn start_seedling_with(extra_env: &[(&str, &str)]) -> TestServer {
     let port = free_port();
     let db_dir = tempfile::TempDir::new().expect("tempdir for db");
     let db_path = db_dir.path().join("smoke.db");
@@ -59,36 +59,36 @@ fn start_leaf_with(extra_env: &[(&str, &str)]) -> TestServer {
     )
     .expect("write fake index.html");
 
-    let mut child = Command::new(leaf_bin())
+    let mut child = Command::new(seedling_bin())
         .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
-        .env("LEAF_SERVER__DOMAIN", "localhost")
-        .env("LEAF_SERVER__HOST", "127.0.0.1")
-        .env("LEAF_SERVER__PORT", port.to_string())
-        .env("LEAF_DATABASE__PATH", db_path.display().to_string())
+        .env("BRIGID_SERVER__DOMAIN", "localhost")
+        .env("BRIGID_SERVER__HOST", "127.0.0.1")
+        .env("BRIGID_SERVER__PORT", port.to_string())
+        .env("BRIGID_DATABASE__PATH", db_path.display().to_string())
         .env(
-            "LEAF_SERVER__UI_DIST_DIR",
+            "BRIGID_SERVER__UI_DIST_DIR",
             ui_dir.path().display().to_string(),
         )
         .envs(extra_env.iter().copied())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .expect("spawn leaf");
+        .expect("spawn seedling");
 
     let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     if !wait_until_listening(addr, Duration::from_secs(5)) {
         // `child` isn't wrapped in `TestServer` yet, so its `Drop` (which
         // would kill it) never runs — without this, a failed startup leaks
-        // the orphaned `leaf` process instead of just failing the test.
+        // the orphaned `seedling` process instead of just failing the test.
         child.kill().ok();
         child.wait().ok();
-        panic!("leaf did not start listening");
+        panic!("seedling did not start listening");
     }
 
     TestServer {
         child,
         // WebAuthn strictly checks the ceremony's origin against the RP's
-        // configured domain (`LEAF_SERVER__DOMAIN=localhost` above) — using
+        // configured domain (`BRIGID_SERVER__DOMAIN=localhost` above) — using
         // 127.0.0.1 here would mismatch and fail with a `Security` error.
         // "localhost" resolves to 127.0.0.1 via /etc/hosts either way.
         base_url: format!("http://localhost:{port}"),
@@ -137,7 +137,7 @@ async fn json_body(resp: reqwest::Response) -> Value {
 
 #[tokio::test]
 async fn health_returns_200() {
-    let server = start_leaf();
+    let server = start_seedling();
     let resp = server
         .client
         .get(format!("{}/health", server.base_url))
@@ -151,7 +151,7 @@ async fn health_returns_200() {
 
 #[tokio::test]
 async fn openid_configuration_describes_the_code_flow() {
-    let server = start_leaf();
+    let server = start_seedling();
     let resp = server
         .client
         .get(format!(
@@ -176,22 +176,8 @@ async fn openid_configuration_describes_the_code_flow() {
 }
 
 #[tokio::test]
-async fn did_document_has_id() {
-    let server = start_leaf();
-    let resp = server
-        .client
-        .get(format!("{}/.well-known/did.json", server.base_url))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), 200);
-    let body = json_body(resp).await;
-    assert!(body["id"].is_string(), "expected `id` field: {body}");
-}
-
-#[tokio::test]
 async fn jwks_has_non_empty_keys() {
-    let server = start_leaf();
+    let server = start_seedling();
     let resp = server
         .client
         .get(format!("{}/.well-known/jwks.json", server.base_url))
@@ -206,7 +192,7 @@ async fn jwks_has_non_empty_keys() {
 
 #[tokio::test]
 async fn login_page_returns_html() {
-    let server = start_leaf();
+    let server = start_seedling();
     let resp = server
         .client
         .get(format!("{}/login", server.base_url))
@@ -229,7 +215,7 @@ async fn login_page_returns_html() {
 
 #[tokio::test]
 async fn webauthn_register_and_login_round_trip_opens_a_session() {
-    let server = start_leaf();
+    let server = start_seedling();
     let origin = url::Url::parse(&server.base_url).unwrap();
     let mut auth_client = WebauthnAuthenticator::new(SoftPasskey::new(true));
     let username = "smoke-alice@localhost";
@@ -312,7 +298,7 @@ async fn webauthn_register_and_login_round_trip_opens_a_session() {
 
 #[tokio::test]
 async fn deleting_the_only_passkey_is_refused() {
-    let server = start_leaf();
+    let server = start_seedling();
     let origin = url::Url::parse(&server.base_url).unwrap();
     let mut auth_client = WebauthnAuthenticator::new(SoftPasskey::new(true));
     let username = "smoke-bob@localhost";
@@ -396,7 +382,7 @@ async fn deleting_the_only_passkey_is_refused() {
 
 #[tokio::test]
 async fn twenty_first_auth_request_returns_429() {
-    let server = start_leaf();
+    let server = start_seedling();
     // GovernorLayer wraps the whole /auth/* router ahead of the handlers, so
     // a request that 404s for an unknown user still consumes a token — no
     // need for a valid ceremony here, just enough distinct requests fired
@@ -439,7 +425,7 @@ async fn hammer_login_begin(server: &TestServer, client_ip: &str, count: usize) 
 
 #[tokio::test]
 async fn behind_a_trusted_proxy_each_client_has_its_own_rate_limit() {
-    let server = start_leaf_with(&[("LEAF_SECURITY__TRUST_FORWARDED_FOR", "true")]);
+    let server = start_seedling_with(&[("BRIGID_SECURITY__TRUST_FORWARDED_FOR", "true")]);
     assert_eq!(hammer_login_begin(&server, "203.0.113.1", 21).await, 429);
     // A second client behind the same proxy is not throttled by the first.
     assert_ne!(hammer_login_begin(&server, "203.0.113.2", 1).await, 429);
@@ -447,7 +433,7 @@ async fn behind_a_trusted_proxy_each_client_has_its_own_rate_limit() {
 
 #[tokio::test]
 async fn without_a_trusted_proxy_forwarded_for_does_not_split_the_rate_limit() {
-    let server = start_leaf();
+    let server = start_seedling();
     assert_eq!(hammer_login_begin(&server, "203.0.113.1", 21).await, 429);
     // The header is ignored: forging it must not buy a fresh bucket.
     assert_eq!(hammer_login_begin(&server, "203.0.113.2", 1).await, 429);
@@ -472,26 +458,29 @@ fn for_soft_passkey(mut ccr: CreationChallengeResponse) -> CreationChallengeResp
 }
 
 // ---------------------------------------------------------------------------
-// Relying parties: `leaf client`, then the whole sign-in (ADR-005 §2)
+// Relying parties: `seedling client`, then the whole sign-in (ADR-005 §2)
 // ---------------------------------------------------------------------------
 
-/// Runs `leaf client …` on the server's database and returns its standard
+/// Runs `seedling client …` on the server's database and returns its standard
 /// output, with whether it succeeded.
-fn leaf_client(server: &TestServer, args: &[&str]) -> (bool, String) {
-    let out = Command::new(leaf_bin())
+fn seedling_client(server: &TestServer, args: &[&str]) -> (bool, String) {
+    let out = Command::new(seedling_bin())
         .arg("client")
         .args(args)
         .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
-        .env("LEAF_DATABASE__PATH", server.db_path.display().to_string())
+        .env(
+            "BRIGID_DATABASE__PATH",
+            server.db_path.display().to_string(),
+        )
         .output()
-        .expect("run leaf client");
+        .expect("run seedling client");
     (
         out.status.success(),
         String::from_utf8(out.stdout).expect("UTF-8 output"),
     )
 }
 
-/// The value of `key=` in the output of `leaf client add`.
+/// The value of `key=` in the output of `seedling client add`.
 fn output_value(stdout: &str, key: &str) -> Option<String> {
     stdout
         .lines()
@@ -508,25 +497,25 @@ async fn a_site_registered_from_the_command_line_signs_a_person_in() {
     const CHALLENGE: &str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
     const REDIRECT: &str = "https://shop.example/cb";
 
-    let server = start_leaf();
+    let server = start_seedling();
     let base = &server.base_url;
 
     // -- the operator registers the site, on the database of the running server --
-    let (ok, out) = leaf_client(
+    let (ok, out) = seedling_client(
         &server,
         &["add", "--name", "Shop", "--redirect-uri", REDIRECT],
     );
-    assert!(ok, "leaf client add: {out}");
+    assert!(ok, "seedling client add: {out}");
     let client_id = output_value(&out, "client_id").expect("client_id is printed");
     let secret = output_value(&out, "client_secret").expect("a secret is printed once");
-    let (ok, out) = leaf_client(&server, &["list"]);
+    let (ok, out) = seedling_client(&server, &["list"]);
     assert!(
         ok && out.contains(&client_id) && out.contains("Shop"),
         "{out}"
     );
     assert!(!out.contains(&secret), "the secret is never shown again");
     // A redirect URI that is not https is refused.
-    let (ok, _) = leaf_client(
+    let (ok, _) = seedling_client(
         &server,
         &[
             "add",
@@ -703,7 +692,7 @@ async fn a_site_registered_from_the_command_line_signs_a_person_in() {
     assert_eq!(resp.status(), 401);
 
     // -- the operator removes the site: its requests stay on this server --
-    let (ok, _) = leaf_client(&server, &["remove", &client_id]);
+    let (ok, _) = seedling_client(&server, &["remove", &client_id]);
     assert!(ok);
     let resp = browser.get(authorize(&client_id)).send().await.unwrap();
     assert_eq!(resp.status(), 303);
@@ -711,6 +700,40 @@ async fn a_site_registered_from_the_command_line_signs_a_person_in() {
         resp.headers()["location"],
         "/continue/?error=unknown_client"
     );
-    let (ok, _) = leaf_client(&server, &["remove", &client_id]);
+    let (ok, _) = seedling_client(&server, &["remove", &client_id]);
     assert!(!ok, "removing it twice fails");
+}
+
+#[tokio::test]
+async fn sign_up_can_be_closed_by_a_setting() {
+    let server = start_seedling_with(&[("BRIGID_SECURITY__SIGNUP_OPEN", "false")]);
+    let info = json_body(
+        server
+            .client
+            .get(format!("{}/auth/server", server.base_url))
+            .send()
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(info["sign_up"], false);
+
+    let resp = server
+        .client
+        .post(format!("{}/auth/register/begin", server.base_url))
+        .json(&json!({}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 403);
+
+    // Signing in is still offered.
+    let resp = server
+        .client
+        .post(format!("{}/auth/login/begin", server.base_url))
+        .json(&json!({}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
 }

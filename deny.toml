@@ -13,6 +13,8 @@ allow = [
   "MPL-2.0",
   "BSL-1.0",
   # This crate's own license.
+  "AGPL-3.0-or-later",
+  # brigid-crypto.
   "LGPL-3.0-or-later",
 ]
 confidence-threshold = 0.8
@@ -30,8 +32,8 @@ ignore = [
   # Revisit when brig-id/core moves to elliptic-curve 0.14 (crypto-bigint >= 0.7).
   { id = "RUSTSEC-2026-0387", reason = "p256/ECDSA code path unreachable: tokens use EdDSA only" },
   # SQLite < 3.54 stale page-cache read with a crafted `-wal` file (libsqlite3-sys 0.30 via sqlx,
-  # no sqlx release bundles >= 0.39). leaf opens only its own database in its own volume.
-  { id = "RUSTSEC-2026-0459", reason = "needs a crafted -wal next to the database; only leaf writes its volume" },
+  # no sqlx release bundles >= 0.39). seedling opens only its own database in its own volume.
+  { id = "RUSTSEC-2026-0459", reason = "needs a crafted -wal next to the database; only seedling writes its volume" },
 ]
 
 [bans]

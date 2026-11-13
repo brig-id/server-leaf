@@ -66,40 +66,40 @@ impl Metrics {
         let inner = self.0.lock().unwrap_or_else(|e| e.into_inner());
         let mut out = String::new();
         out.push_str(
-            "# HELP leaf_http_requests_total HTTP requests by method, route and status.\n",
+            "# HELP brigid_http_requests_total HTTP requests by method, route and status.\n",
         );
-        out.push_str("# TYPE leaf_http_requests_total counter\n");
+        out.push_str("# TYPE brigid_http_requests_total counter\n");
         for ((method, route, status), n) in &inner.requests {
             let _ = writeln!(
                 out,
-                "leaf_http_requests_total{{method=\"{method}\",route=\"{route}\",status=\"{status}\"}} {n}"
+                "brigid_http_requests_total{{method=\"{method}\",route=\"{route}\",status=\"{status}\"}} {n}"
             );
         }
         out.push_str(
-            "# HELP leaf_http_request_duration_seconds HTTP request latency by method and route.\n",
+            "# HELP brigid_http_request_duration_seconds HTTP request latency by method and route.\n",
         );
-        out.push_str("# TYPE leaf_http_request_duration_seconds histogram\n");
+        out.push_str("# TYPE brigid_http_request_duration_seconds histogram\n");
         for ((method, route), h) in &inner.latency {
             let labels = format!("method=\"{method}\",route=\"{route}\"");
             for (bound, n) in BUCKETS.iter().zip(h.buckets) {
                 let _ = writeln!(
                     out,
-                    "leaf_http_request_duration_seconds_bucket{{{labels},le=\"{bound}\"}} {n}"
+                    "brigid_http_request_duration_seconds_bucket{{{labels},le=\"{bound}\"}} {n}"
                 );
             }
             let _ = writeln!(
                 out,
-                "leaf_http_request_duration_seconds_bucket{{{labels},le=\"+Inf\"}} {}",
+                "brigid_http_request_duration_seconds_bucket{{{labels},le=\"+Inf\"}} {}",
                 h.count
             );
             let _ = writeln!(
                 out,
-                "leaf_http_request_duration_seconds_sum{{{labels}}} {}",
+                "brigid_http_request_duration_seconds_sum{{{labels}}} {}",
                 h.sum
             );
             let _ = writeln!(
                 out,
-                "leaf_http_request_duration_seconds_count{{{labels}}} {}",
+                "brigid_http_request_duration_seconds_count{{{labels}}} {}",
                 h.count
             );
         }
@@ -155,13 +155,13 @@ mod tests {
         m.record("POST", "/auth/login/begin", 404, 0.01);
         let text = m.render();
         assert!(text.contains(
-            "leaf_http_requests_total{method=\"GET\",route=\"/health\",status=\"200\"} 2"
+            "brigid_http_requests_total{method=\"GET\",route=\"/health\",status=\"200\"} 2"
         ));
         assert!(text.contains(
-            "leaf_http_request_duration_seconds_bucket{method=\"GET\",route=\"/health\",le=\"0.005\"} 1"
+            "brigid_http_request_duration_seconds_bucket{method=\"GET\",route=\"/health\",le=\"0.005\"} 1"
         ));
         assert!(text.contains(
-            "leaf_http_request_duration_seconds_bucket{method=\"GET\",route=\"/health\",le=\"+Inf\"} 2"
+            "brigid_http_request_duration_seconds_bucket{method=\"GET\",route=\"/health\",le=\"+Inf\"} 2"
         ));
         assert!(text.contains("status=\"404\""));
     }

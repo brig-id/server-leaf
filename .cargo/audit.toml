@@ -1,4 +1,4 @@
-# cargo-audit configuration for brigid/server-leaf
+# cargo-audit configuration for brigid/server-seedling
 #
 # RUSTSEC-2023-0071: Marvin Attack in `rsa` (no fixed upgrade available).
 # Pulled in transitively by `sqlx` for the MySQL backend, which `brigid-store`
@@ -19,7 +19,7 @@
 # RUSTSEC-2026-0459: SQLite < 3.54 can return stale page-cache bytes when it opens a
 # database together with a crafted `-wal` file of a different page size. Bundled by
 # libsqlite3-sys 0.30 via sqlx (no sqlx release bundles >= 0.39 yet, sqlx 0.9 included).
-# leaf only opens its own database in its own volume, written by no one else: a party able
+# seedling only opens its own database in its own volume, written by no one else: a party able
 # to plant the `-wal` file can already read and replace the database. Revisit when sqlx
 # moves to libsqlite3-sys >= 0.39.
 [advisories]

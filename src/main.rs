@@ -1,4 +1,4 @@
-//! brig·id `leaf` — single-server deployment binary.
+//! brig·id `seedling` — single-server deployment binary.
 //!
 //! # Startup sequence
 //!
@@ -20,7 +20,7 @@ use std::{
     time::Duration,
 };
 
-use leaf::{apply_ui_fallback, metrics, probe};
+use seedling::{apply_ui_fallback, metrics, probe};
 
 use clap::{Parser, Subcommand};
 use tracing_subscriber::{EnvFilter, fmt};
@@ -38,11 +38,11 @@ use brigid_webauthn::WebauthnService;
 // ---------------------------------------------------------------------------
 
 #[derive(Parser)]
-#[command(name = "leaf", about = "brig·id single-server deployment")]
+#[command(name = "seedling", about = "brig·id single-server deployment")]
 struct Cli {
     /// Path to the TOML configuration file.
     ///
-    /// Optional — if omitted, configuration is read entirely from `LEAF_*`
+    /// Optional — if omitted, configuration is read entirely from `BRIGID_*`
     /// environment variables (the recommended setup for container deployments).
     /// Used both to start the server and to locate the database for
     /// `rotate-key`, hence `global = true` so it's accepted on either side
@@ -58,7 +58,7 @@ struct Cli {
 enum Command {
     /// Re-encrypt every row under a new master key, replacing the old one.
     ///
-    /// Reads the database path from `--config`/`LEAF_DATABASE__PATH` like a
+    /// Reads the database path from `--config`/`BRIGID_DATABASE__PATH` like a
     /// normal run — `BRIGID_MASTER_KEY` is intentionally *not* read from the
     /// environment for this subcommand, since both keys are needed
     /// simultaneously and only one can live in a single env var.
@@ -73,7 +73,7 @@ enum Command {
 
     /// Make a new OIDC signing key current. The previous one keeps verifying
     /// tokens for the grace period (tokens live one hour), then is pruned at
-    /// a later start. Restart leaf afterwards to sign with the new key.
+    /// a later start. Restart seedling afterwards to sign with the new key.
     RotateOidcKey,
 
     /// Manage the relying parties: the sites that may ask this server to
@@ -85,11 +85,11 @@ enum Command {
     },
 
     /// Liveness probe for Docker's HEALTHCHECK: GET the local `/health`,
-    /// exit 0 on 200, 1 otherwise. Reads only `LEAF_SERVER__PORT` (default
+    /// exit 0 on 200, 1 otherwise. Reads only `BRIGID_SERVER__PORT` (default
     /// 8080), so it needs neither the config file nor the master key.
     Healthcheck {
         /// Port of the plain-HTTP listener to probe.
-        #[arg(long, env = "LEAF_SERVER__PORT", default_value_t = 8080)]
+        #[arg(long, env = "BRIGID_SERVER__PORT", default_value_t = 8080)]
         port: u16,
     },
 }
@@ -139,7 +139,7 @@ fn db_url(path: &str) -> String {
     }
 }
 
-/// Handles `leaf rotate-key --old <path> --new <path>`.
+/// Handles `seedling rotate-key --old <path> --new <path>`.
 async fn rotate_key(db: &config::DatabaseConfig, old_path: &Path, new_path: &Path) {
     let old_master = MasterKey::from_file(old_path)
         .expect("failed to read the old master key file (64 hex chars expected)");
@@ -151,7 +151,7 @@ async fn rotate_key(db: &config::DatabaseConfig, old_path: &Path, new_path: &Pat
         .await
         .expect("failed to open or migrate database");
 
-    // A database last started by a leaf that derived the VSID secret from the
+    // A database last started by a seedling that derived the VSID secret from the
     // master key has none stored yet. Record it under the old key first, or
     // the rotation would leave nothing to compute the existing VSIDs with.
     store
@@ -169,9 +169,9 @@ async fn rotate_key(db: &config::DatabaseConfig, old_path: &Path, new_path: &Pat
     eprintln!("Nothing changes for users or relying parties: the OIDC signing keys and the");
     eprintln!("VSID secret are stored and were re-encrypted, so issued tokens stay valid and");
     eprintln!("every VSID (the OIDC `sub` claim) keeps its value. Rotate the signing keys");
-    eprintln!("separately with `leaf rotate-oidc-key`.");
+    eprintln!("separately with `seedling rotate-oidc-key`.");
     eprintln!();
-    eprintln!("Update BRIGID_MASTER_KEY to the new key before starting leaf again.");
+    eprintln!("Update BRIGID_MASTER_KEY to the new key before starting seedling again.");
 }
 
 /// How long a retired OIDC key keeps verifying: the one-hour token lifetime
@@ -230,7 +230,7 @@ async fn load_oidc_keys(
     (current, keys.collect())
 }
 
-/// Handles `leaf rotate-oidc-key`.
+/// Handles `seedling rotate-oidc-key`.
 async fn rotate_oidc_key(db: &config::DatabaseConfig) {
     let store = EncryptedStore::new(&db_url(&db.path), load_master_key())
         .await
@@ -242,14 +242,14 @@ async fn rotate_oidc_key(db: &config::DatabaseConfig) {
         .await
         .expect("failed to store the new OIDC signing key");
     eprintln!("✓ New OIDC signing key {} is current.", key.kid());
-    eprintln!("  Restart leaf to sign with it. Tokens signed by the previous key keep");
+    eprintln!("  Restart seedling to sign with it. Tokens signed by the previous key keep");
     eprintln!(
         "  verifying for {} hours, then that key is removed at a later start.",
         OIDC_GRACE.whole_hours()
     );
 }
 
-/// Handles `leaf client …`. Results go to standard output, one `key=value`
+/// Handles `seedling client …`. Results go to standard output, one `key=value`
 /// or one site per line, so that a script can read them; everything meant
 /// for a person goes to standard error.
 async fn client_command(db: &config::DatabaseConfig, action: ClientCommand) {
@@ -451,6 +451,17 @@ async fn main() {
             Duration::from_secs(cfg.security.session_lifetime_seconds),
         );
     state.trust_forwarded_for = cfg.security.trust_forwarded_for;
+    state.signup_open = cfg.security.signup_open;
+    if !state.signup_open {
+        tracing::info!("sign-up is closed: no account can be created on this server");
+    }
+    let legacy = config::legacy_env_settings();
+    if !legacy.is_empty() {
+        tracing::warn!(
+            settings = ?legacy,
+            "settings given under the earlier LEAF_ prefix: rename them to BRIGID_, the old prefix will stop being read"
+        );
+    }
     let state = Arc::new(state);
     let api_router = build_router(state, &cors_origins);
 
@@ -518,7 +529,7 @@ async fn main() {
                 tls = true,
                 session_idle_secs = cfg.security.session_ttl_seconds,
                 session_lifetime_secs = cfg.security.session_lifetime_seconds,
-                "brig·id leaf starting"
+                "brig·id seedling starting"
             );
             let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert, key)
                 .await

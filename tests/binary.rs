@@ -1,5 +1,5 @@
-// Integration tests for the `leaf` binary's startup/shutdown behaviour
-// (phase-3 "leaf binary validation" checklist). These spawn the actual
+// Integration tests for the `seedling` binary's startup/shutdown behaviour
+// (phase-3 "seedling binary validation" checklist). These spawn the actual
 // compiled binary as a subprocess rather than calling library functions
 // directly, since the behaviour under test (CLI parsing, env handling,
 // process exit codes, signal handling) only exists at that boundary.
@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 
-use common::{TEST_MASTER_KEY, free_port, leaf_bin, wait_until_listening};
+use common::{TEST_MASTER_KEY, free_port, seedling_bin, wait_until_listening};
 
 fn output_text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).into_owned()
@@ -24,13 +24,13 @@ fn output_text(bytes: &[u8]) -> String {
 
 #[test]
 fn missing_master_key_fails_with_readable_message() {
-    let output = Command::new(leaf_bin())
+    let output = Command::new(seedling_bin())
         .env_remove("BRIGID_MASTER_KEY")
         .env_remove("BRIGID_MASTER_KEY_FILE")
-        .env("LEAF_SERVER__DOMAIN", "localhost")
-        .env("LEAF_DATABASE__PATH", ":memory:")
+        .env("BRIGID_SERVER__DOMAIN", "localhost")
+        .env("BRIGID_DATABASE__PATH", ":memory:")
         .output()
-        .expect("spawn leaf");
+        .expect("spawn seedling");
 
     assert!(!output.status.success(), "expected non-zero exit");
     let stderr = output_text(&output.stderr);
@@ -46,13 +46,13 @@ fn missing_master_key_fails_with_readable_message() {
 
 #[test]
 fn missing_config_file_fails_with_clear_message() {
-    let missing_path = "/nonexistent/leaf-test-config-does-not-exist.toml";
-    let output = Command::new(leaf_bin())
+    let missing_path = "/nonexistent/seedling-test-config-does-not-exist.toml";
+    let output = Command::new(seedling_bin())
         .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
         .arg("--config")
         .arg(missing_path)
         .output()
-        .expect("spawn leaf");
+        .expect("spawn seedling");
 
     assert!(!output.status.success(), "expected non-zero exit");
     let stderr = output_text(&output.stderr);
@@ -69,16 +69,16 @@ fn missing_config_file_fails_with_clear_message() {
 #[test]
 fn valid_config_listens_on_configured_port() {
     let port = free_port();
-    let mut child = Command::new(leaf_bin())
+    let mut child = Command::new(seedling_bin())
         .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
-        .env("LEAF_SERVER__DOMAIN", "localhost")
-        .env("LEAF_SERVER__HOST", "127.0.0.1")
-        .env("LEAF_SERVER__PORT", port.to_string())
-        .env("LEAF_DATABASE__PATH", ":memory:")
+        .env("BRIGID_SERVER__DOMAIN", "localhost")
+        .env("BRIGID_SERVER__HOST", "127.0.0.1")
+        .env("BRIGID_SERVER__PORT", port.to_string())
+        .env("BRIGID_DATABASE__PATH", ":memory:")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .expect("spawn leaf");
+        .expect("spawn seedling");
 
     let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     let listening = wait_until_listening(addr, Duration::from_secs(5));
@@ -86,7 +86,7 @@ fn valid_config_listens_on_configured_port() {
     child.kill().ok();
     child.wait().ok();
 
-    assert!(listening, "leaf did not start listening on port {port}");
+    assert!(listening, "seedling did not start listening on port {port}");
 }
 
 // ---------------------------------------------------------------------------
@@ -96,24 +96,24 @@ fn valid_config_listens_on_configured_port() {
 #[tokio::test]
 async fn graceful_shutdown_on_sigterm_exits_cleanly() {
     let dir = tempfile::TempDir::new().expect("tempdir");
-    let db_path = dir.path().join("leaf-shutdown-test.db");
+    let db_path = dir.path().join("seedling-shutdown-test.db");
     let port = free_port();
 
-    let mut child = Command::new(leaf_bin())
+    let mut child = Command::new(seedling_bin())
         .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
-        .env("LEAF_SERVER__DOMAIN", "localhost")
-        .env("LEAF_SERVER__HOST", "127.0.0.1")
-        .env("LEAF_SERVER__PORT", port.to_string())
-        .env("LEAF_DATABASE__PATH", db_path.display().to_string())
+        .env("BRIGID_SERVER__DOMAIN", "localhost")
+        .env("BRIGID_SERVER__HOST", "127.0.0.1")
+        .env("BRIGID_SERVER__PORT", port.to_string())
+        .env("BRIGID_DATABASE__PATH", db_path.display().to_string())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .expect("spawn leaf");
+        .expect("spawn seedling");
 
     let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     assert!(
         wait_until_listening(addr, Duration::from_secs(5)),
-        "leaf did not start listening before SIGTERM"
+        "seedling did not start listening before SIGTERM"
     );
 
     // Send a real SIGTERM (Child::kill() only sends SIGKILL on Unix) so the
@@ -125,7 +125,7 @@ async fn graceful_shutdown_on_sigterm_exits_cleanly() {
         .expect("send SIGTERM");
     assert!(status.success(), "kill -TERM failed to send the signal");
 
-    let exit = child.wait().expect("wait for leaf to exit");
+    let exit = child.wait().expect("wait for seedling to exit");
     assert!(
         exit.success(),
         "expected clean exit (0) after SIGTERM, got {exit:?}"
@@ -147,18 +147,18 @@ async fn graceful_shutdown_on_sigterm_exits_cleanly() {
 
 #[test]
 fn port_already_in_use_fails_with_clear_message() {
-    // Hold the port open ourselves so leaf's bind fails.
+    // Hold the port open ourselves so seedling's bind fails.
     let holder = TcpListener::bind("127.0.0.1:0").expect("bind holder");
     let port = holder.local_addr().unwrap().port();
 
-    let output = Command::new(leaf_bin())
+    let output = Command::new(seedling_bin())
         .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
-        .env("LEAF_SERVER__DOMAIN", "localhost")
-        .env("LEAF_SERVER__HOST", "127.0.0.1")
-        .env("LEAF_SERVER__PORT", port.to_string())
-        .env("LEAF_DATABASE__PATH", ":memory:")
+        .env("BRIGID_SERVER__DOMAIN", "localhost")
+        .env("BRIGID_SERVER__HOST", "127.0.0.1")
+        .env("BRIGID_SERVER__PORT", port.to_string())
+        .env("BRIGID_DATABASE__PATH", ":memory:")
         .output()
-        .expect("spawn leaf");
+        .expect("spawn seedling");
 
     drop(holder);
 
@@ -171,7 +171,7 @@ fn port_already_in_use_fails_with_clear_message() {
 }
 
 // ---------------------------------------------------------------------------
-// `leaf healthcheck` (Docker HEALTHCHECK) and the internal metrics listener
+// `seedling healthcheck` (Docker HEALTHCHECK) and the internal metrics listener
 // ---------------------------------------------------------------------------
 
 fn http_get(addr: SocketAddr, path: &str) -> String {
@@ -189,7 +189,7 @@ fn http_get(addr: SocketAddr, path: &str) -> String {
 
 #[test]
 fn healthcheck_fails_when_nothing_listens() {
-    let status = Command::new(leaf_bin())
+    let status = Command::new(seedling_bin())
         .args(["healthcheck", "--port", &free_port().to_string()])
         .stderr(Stdio::null())
         .status()
@@ -201,26 +201,26 @@ fn healthcheck_fails_when_nothing_listens() {
 fn healthcheck_passes_and_metrics_count_requests() {
     let port = free_port();
     let metrics_port = free_port();
-    let mut child = Command::new(leaf_bin())
+    let mut child = Command::new(seedling_bin())
         .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
-        .env("LEAF_SERVER__DOMAIN", "localhost")
-        .env("LEAF_SERVER__HOST", "127.0.0.1")
-        .env("LEAF_SERVER__PORT", port.to_string())
-        .env("LEAF_SERVER__METRICS_PORT", metrics_port.to_string())
-        .env("LEAF_DATABASE__PATH", ":memory:")
+        .env("BRIGID_SERVER__DOMAIN", "localhost")
+        .env("BRIGID_SERVER__HOST", "127.0.0.1")
+        .env("BRIGID_SERVER__PORT", port.to_string())
+        .env("BRIGID_SERVER__METRICS_PORT", metrics_port.to_string())
+        .env("BRIGID_DATABASE__PATH", ":memory:")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .expect("spawn leaf");
+        .expect("spawn seedling");
     let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     let metrics_addr: SocketAddr = format!("127.0.0.1:{metrics_port}").parse().unwrap();
     assert!(wait_until_listening(addr, Duration::from_secs(5)));
     assert!(wait_until_listening(metrics_addr, Duration::from_secs(5)));
 
     // The probe reads the port from the same variable as the server.
-    let status = Command::new(leaf_bin())
+    let status = Command::new(seedling_bin())
         .arg("healthcheck")
-        .env("LEAF_SERVER__PORT", port.to_string())
+        .env("BRIGID_SERVER__PORT", port.to_string())
         .status()
         .expect("run healthcheck");
 
@@ -235,19 +235,20 @@ fn healthcheck_passes_and_metrics_count_requests() {
     assert_eq!(
         status.code(),
         Some(0),
-        "healthcheck must pass on a live leaf"
+        "healthcheck must pass on a live seedling"
     );
     assert!(metrics.starts_with("HTTP/1.1 200"), "{metrics}");
     assert!(
-        metrics
-            .contains("leaf_http_requests_total{method=\"GET\",route=\"/health\",status=\"200\"}"),
+        metrics.contains(
+            "brigid_http_requests_total{method=\"GET\",route=\"/health\",status=\"200\"}"
+        ),
         "{metrics}"
     );
-    assert!(!public.contains("leaf_http_requests_total"));
+    assert!(!public.contains("brigid_http_requests_total"));
 }
 
 // ---------------------------------------------------------------------------
-// `leaf rotate-oidc-key` (core#22): the new key signs, the previous one stays
+// `seedling rotate-oidc-key` (core#22): the new key signs, the previous one stays
 // in the JWKS for its grace period
 // ---------------------------------------------------------------------------
 
@@ -256,16 +257,16 @@ fn rotate_oidc_key_publishes_both_keys() {
     let dir = tempfile::tempdir().unwrap();
     let db = dir.path().join("brigid.db");
     let start = |port: u16| {
-        let child = Command::new(leaf_bin())
+        let child = Command::new(seedling_bin())
             .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
-            .env("LEAF_SERVER__DOMAIN", "localhost")
-            .env("LEAF_SERVER__HOST", "127.0.0.1")
-            .env("LEAF_SERVER__PORT", port.to_string())
-            .env("LEAF_DATABASE__PATH", &db)
+            .env("BRIGID_SERVER__DOMAIN", "localhost")
+            .env("BRIGID_SERVER__HOST", "127.0.0.1")
+            .env("BRIGID_SERVER__PORT", port.to_string())
+            .env("BRIGID_DATABASE__PATH", &db)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .expect("spawn leaf");
+            .expect("spawn seedling");
         let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
         assert!(wait_until_listening(addr, Duration::from_secs(5)));
         (child, addr)
@@ -288,10 +289,10 @@ fn rotate_oidc_key_publishes_both_keys() {
     child.kill().ok();
     child.wait().ok();
 
-    let status = Command::new(leaf_bin())
+    let status = Command::new(seedling_bin())
         .arg("rotate-oidc-key")
         .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
-        .env("LEAF_DATABASE__PATH", &db)
+        .env("BRIGID_DATABASE__PATH", &db)
         .stderr(Stdio::null())
         .status()
         .expect("run rotate-oidc-key");

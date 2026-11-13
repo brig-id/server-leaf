@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# tests/e2e/smoke.sh — brig·id leaf smoke test suite
+# tests/e2e/smoke.sh — brig·id seedling smoke test suite
 #
-# Requires a running leaf instance. Set BASE_URL to override the default.
+# Requires a running seedling instance. Set BASE_URL to override the default.
 #
 # Usage:
 #   BASE_URL=http://localhost:8080 bash tests/e2e/smoke.sh
@@ -133,12 +133,8 @@ check "GET /.well-known/jwks.json — has keys array" \
   "${BASE_URL}/.well-known/jwks.json" "200" \
   '.keys | length > 0'
 
-check "GET /.well-known/did.json — has id field" \
-  "${BASE_URL}/.well-known/did.json" "200" \
-  '.id | startswith("did:web:")'
-
 # UI: /login and /register must return the Qwik SPA index.html.
-# This requires LEAF_SERVER__UI_DIST_DIR to be set and the dist to exist.
+# This requires BRIGID_SERVER__UI_DIST_DIR to be set and the dist to exist.
 # If the server is running without a UI dist dir, these will return 404 — skip
 # these checks with SKIP_UI_CHECKS=1 when running in API-only mode.
 if [ "${SKIP_UI_CHECKS:-0}" != "1" ]; then

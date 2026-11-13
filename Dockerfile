@@ -1,19 +1,19 @@
 # ---------------------------------------------------------------------------
-# brig·id leaf — multi-stage production image
+# brig·id seedling — multi-stage production image
 #
 # Three stages:
 #   1. ui-builder  — Node.js: build the Qwik UI → dist/
-#   2. rust-builder — Rust: compile the leaf binary (release)
-#   3. runtime     — distroless: leaf binary + UI static files
+#   2. rust-builder — Rust: compile the seedling binary (release)
+#   3. runtime     — distroless: seedling binary + UI static files
 #
 # Prepare the UI source before building (option A — local copy):
 #   cp -r /workspaces/app ./ui   # or: ln -sf ../app ui
-#   docker build -t brigid/leaf:dev .
+#   docker build -t brigid/seedling:dev .
 #
 # Named-context variant (BuildKit, recommended for CI):
 #   docker buildx build \
 #     --build-context ui-src=/path/to/brig-id-app \
-#     -t brigid/leaf:dev .
+#     -t brigid/seedling:dev .
 #
 # For local development without rebuilding the image, use:
 #   docker compose -f deploy/compose.dev.yaml up
@@ -29,7 +29,7 @@
 #
 # If no package.json is found (placeholder only), the stage creates an empty
 # dist/ so that the runtime stage still copies a valid (though empty) path.
-# In that case, set LEAF_SERVER__UI_DIST_DIR to an actual dist in production.
+# In that case, set BRIGID_SERVER__UI_DIST_DIR to an actual dist in production.
 #
 # The app repo depends on the private Web Awesome Pro npm registry. Pass its
 # token via a BuildKit secret mount — never a --build-arg, which would land
@@ -151,17 +151,17 @@ RUN touch src/main.rs src/lib.rs && \
 # application/vnd.oci.image.index.v1+json), not a single-platform manifest
 # digest — pinning the latter silently locks this FROM to one architecture
 # regardless of `--platform` during a multi-arch buildx build, so an arm64
-# leaf binary gets copied into an amd64 base and fails at container start
+# seedling binary gets copied into an amd64 base and fails at container start
 # with "exec: no such file or directory" (missing aarch64 interpreter).
 # Verify with: docker manifest inspect gcr.io/distroless/cc-debian12@sha256:<digest>
 # and check "mediaType" at the top level before trusting a re-pin.
 FROM gcr.io/distroless/cc-debian12@sha256:e5d81ddde149641e2a9ba55be4545bc125c67de07508b03ba4c22e6eb0ded5aa AS runtime
 
 # Copy the compiled binary from the Rust build stage.
-COPY --from=rust-builder /build/target/release/leaf /leaf
+COPY --from=rust-builder /build/target/release/seedling /seedling
 
 # Copy the pre-built Qwik UI static files from the Node.js build stage.
-# These are served by the leaf binary under LEAF_SERVER__UI_DIST_DIR.
+# These are served by the seedling binary under BRIGID_SERVER__UI_DIST_DIR.
 COPY --from=ui-builder /ui/dist /ui/dist
 
 # Nonroot-owned mount point for the SQLite database (see the /data comment
@@ -177,6 +177,6 @@ EXPOSE 8080
 # Liveness: the binary probes its own /health (distroless has no shell or
 # curl). Exec form, so no shell is needed. Swarm restarts an unhealthy task.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD ["/leaf", "healthcheck"]
+  CMD ["/seedling", "healthcheck"]
 
-ENTRYPOINT ["/leaf"]
+ENTRYPOINT ["/seedling"]

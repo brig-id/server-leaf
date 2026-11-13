@@ -26,7 +26,7 @@ jobs:
     uses: brig-id/.github/.github/workflows/coverage.yml@5e019131d735e4ed0bd3598b5a61137bdae7eff3
     with:
       working-directory: .
-      codecov-flags: server-leaf
+      codecov-flags: server-seedling
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -42,12 +42,12 @@ jobs:
     # placeholder instead of failing on the missing npm_token. The real UI
     # build still runs on every push to main/dev/* once a dependabot PR is
     # merged, so coverage isn't lost, only deferred past the PR.
-    name: Docker build (leaf + app UI embedded)
+    name: Docker build (seedling + app UI embedded)
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Checkout server-leaf
+      - name: Checkout server-seedling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -58,10 +58,10 @@ jobs:
         with:
           persist-credentials: false
           repository: brig-id/app
-          # Pinned so the UI embedded in the leaf image is reproducible: a
-          # floating `main` means two builds of the same server-leaf commit
+          # Pinned so the UI embedded in the seedling image is reproducible: a
+          # floating `main` means two builds of the same server-seedling commit
           # could embed different UI code depending on when they ran. Bump
-          # deliberately when app ships a change meant to land in leaf.
+          # deliberately when app ships a change meant to land in seedling.
           ref: c54f42f0a8714452cb772788907cc44f40a22650 # main @ 2026-11-13
           path: ui
 
@@ -74,14 +74,14 @@ jobs:
           context: .
           push: false
           load: true
-          tags: leaf:ci
+          tags: seedling:ci
           secrets: |
             npm_token=${{ secrets.WEBAWESOME_NPM_TOKEN }}
 
       - name: Run the binary in the image
         # Building is not enough: a builder/runtime glibc mismatch only shows
         # when the binary starts ("GLIBC_2.38 not found", v0.2.0).
-        run: docker run --rm leaf:ci --help > /dev/null
+        run: docker run --rm seedling:ci --help > /dev/null
 
   # Runs only on a `vX.Y.Z` tag push — the actual release artifact. Separate
   # from the `docker` validation job above (which stays fast, single-arch,
@@ -94,7 +94,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Checkout server-leaf
+      - name: Checkout server-seedling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -113,7 +113,7 @@ jobs:
           repository: brig-id/app
           # Same pin as the validation job above — keep both in sync when
           # bumping. Once app/core/crypto have their own tagged releases,
-          # this should point at the app tag that belongs to this leaf
+          # this should point at the app tag that belongs to this seedling
           # release rather than a bare commit.
           ref: c54f42f0a8714452cb772788907cc44f40a22650 # main @ 2026-11-13
           path: ui
@@ -145,5 +145,5 @@ jobs:
           build-args: |
             UNSPLASH_ACCESS_KEY=${{ secrets.UNSPLASH_ACCESS_KEY }}
           tags: |
-            ghcr.io/brig-id/leaf:${{ github.ref_name }}
-            ghcr.io/brig-id/leaf:latest
+            ghcr.io/brig-id/seedling:${{ github.ref_name }}
+            ghcr.io/brig-id/seedling:latest

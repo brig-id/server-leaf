@@ -15,7 +15,7 @@ target/
 .DS_Store
 
 # Secrets (should never be in the image context anyway)
-leaf.toml
+seedling.toml
 *.pem
 *.key
 *.crt

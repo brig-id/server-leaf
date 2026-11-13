@@ -1,9 +1,9 @@
-# brig·id leaf — example configuration
+# brig·id seedling — example configuration
 #
-# Copy this file to (for example) `leaf.toml` and adjust for your deployment,
-# then pass it explicitly on the command line: `leaf --config ./leaf.toml`.
-# The binary does NOT auto-discover a `leaf.toml` in the current directory —
-# without `--config`, configuration is read entirely from `LEAF_*` environment
+# Copy this file to (for example) `seedling.toml` and adjust for your deployment,
+# then pass it explicitly on the command line: `seedling --config ./seedling.toml`.
+# The binary does NOT auto-discover a `seedling.toml` in the current directory —
+# without `--config`, configuration is read entirely from `BRIGID_*` environment
 # variables (the recommended path for container deployments, where TOML files
 # complicate secret management).
 #
@@ -26,12 +26,12 @@ domain = "example.com"
 # tls_key  = "/certs/key.pem"
 
 # Publicly reachable URL of this instance, including scheme. Set this when
-# `leaf` runs behind a TLS-terminating reverse proxy (e.g. Caddy on :443 →
-# leaf on :8080) so OIDC issuer / discovery URLs and WebAuthn origin checks
+# `seedling` runs behind a TLS-terminating reverse proxy (e.g. Caddy on :443 →
+# seedling on :8080) so OIDC issuer / discovery URLs and WebAuthn origin checks
 # advertise the public endpoint rather than the internal bind address.
 # When omitted, the URL is derived from `host`, `port`, and whether `tls_cert`
 # / `tls_key` are set, which is only correct for direct deployments.
-# Override via env: `LEAF_SERVER__PUBLIC_URL=https://example.com`.
+# Override via env: `BRIGID_SERVER__PUBLIC_URL=https://example.com`.
 # public_url = "https://example.com"
 
 [database]
@@ -46,6 +46,6 @@ cors_origins = ["https://example.com"]
 # Rate-limit per client IP read from `X-Forwarded-For` rather than the TCP peer
 # address. Set to true behind a reverse proxy that overwrites this header
 # (Caddy does); otherwise every client shares one rate-limit bucket. Keep
-# false when clients reach leaf directly: they could forge the header.
-# Override via env: `LEAF_SECURITY__TRUST_FORWARDED_FOR=true`.
+# false when clients reach seedling directly: they could forge the header.
+# Override via env: `BRIGID_SECURITY__TRUST_FORWARDED_FOR=true`.
 trust_forwarded_for = false

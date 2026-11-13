@@ -1,4 +1,4 @@
-# brig·id leaf — production deployment
+# brig·id seedling — production deployment
 #
 # Uses Docker secrets for BRIGID_MASTER_KEY (never a plaintext env var).
 # Caddy handles TLS termination automatically (Let's Encrypt).
@@ -15,7 +15,7 @@ secrets:
     external: true
 
 volumes:
-  leaf-data:
+  seedling-data:
     driver: local
   caddy-data:
   caddy-config:
@@ -26,18 +26,18 @@ networks:
 
 services:
   # --------------------------------------------------------------------------
-  # brig·id leaf application server
+  # brig·id seedling application server
   # --------------------------------------------------------------------------
-  leaf:
+  seedling:
     # Pin to an immutable image digest in production. Floating tags
-    # (`ghcr.io/brig-id/leaf:latest`) can move under your feet during `docker compose
-    # pull`, silently introducing an upgrade or downgrade. `${LEAF_IMAGE:?...}`
+    # (`ghcr.io/brig-id/seedling:latest`) can move under your feet during `docker compose
+    # pull`, silently introducing an upgrade or downgrade. `${BRIGID_IMAGE:?...}`
     # forces operators to set the variable explicitly to a pinned reference,
     # e.g.
-    #   LEAF_IMAGE=ghcr.io/brig-id/leaf:vX.Y.Z@sha256:<64-hex>
+    #   BRIGID_IMAGE=ghcr.io/brig-id/seedling:vX.Y.Z@sha256:<64-hex>
     # Docker Compose refuses to start the stack when the variable is unset,
     # so a stale or floating `:latest` can never be deployed by accident.
-    image: ${LEAF_IMAGE:?set LEAF_IMAGE to a pinned image digest (e.g. ghcr.io/brig-id/leaf:vX.Y.Z@sha256:<64-hex>)}
+    image: ${BRIGID_IMAGE:?set BRIGID_IMAGE to a pinned image digest (e.g. ghcr.io/brig-id/seedling:vX.Y.Z@sha256:<64-hex>)}
     restart: unless-stopped
     # `restart:` above is plain-Compose-only and silently ignored under
     # `docker stack deploy` (Swarm mode, required by the `overlay` network
@@ -54,42 +54,42 @@ services:
     tmpfs:
       - /tmp:size=64m,mode=1777
     volumes:
-      - leaf-data:/data
+      - seedling-data:/data
     secrets:
       - brigid_master_key
     environment:
-      RUST_LOG: "brigid_api=info,leaf=info,warn"
+      RUST_LOG: "brigid_api=info,seedling=info,warn"
       BRIGID_MASTER_KEY_FILE: /run/secrets/brigid_master_key
-      LEAF_SERVER__DOMAIN: "${BRIGID_DOMAIN:?BRIGID_DOMAIN must be set}"
-      LEAF_SERVER__PUBLIC_URL: "https://${BRIGID_DOMAIN:?BRIGID_DOMAIN must be set}"
-      LEAF_SERVER__HOST: "0.0.0.0"
-      LEAF_SERVER__PORT: "8080"
+      BRIGID_SERVER__DOMAIN: "${BRIGID_DOMAIN:?BRIGID_DOMAIN must be set}"
+      BRIGID_SERVER__PUBLIC_URL: "https://${BRIGID_DOMAIN:?BRIGID_DOMAIN must be set}"
+      BRIGID_SERVER__HOST: "0.0.0.0"
+      BRIGID_SERVER__PORT: "8080"
       # Prometheus metrics on the internal overlay network only: not in
-      # `ports`, and Caddy only proxies 8080. Scrape leaf:9100/metrics.
-      LEAF_SERVER__METRICS_PORT: "9100"
+      # `ports`, and Caddy only proxies 8080. Scrape seedling:9100/metrics.
+      BRIGID_SERVER__METRICS_PORT: "9100"
       # Must match the Dockerfile's COPY destination for the pre-built Qwik
       # UI (`COPY --from=ui-builder /ui/dist /ui/dist`). Without this, the
       # binary's ui_dist_dir config stays unset and apply_ui_fallback()
       # never serves any static files — every non-API route 404s.
-      LEAF_SERVER__UI_DIST_DIR: "/ui/dist"
-      LEAF_DATABASE__PATH: "/data/brigid.db"
+      BRIGID_SERVER__UI_DIST_DIR: "/ui/dist"
+      BRIGID_DATABASE__PATH: "/data/brigid.db"
       # Single-quoted so the embedded `["..."]` JSON-style brackets and
       # double quotes pass through to figment verbatim — Compose still
       # interpolates `${BRIGID_DOMAIN}` inside single quotes, so we get
       # secret-free substitution without having to escape every inner `"`.
-      LEAF_SECURITY__CORS_ORIGINS: '["https://${BRIGID_DOMAIN}"]'
-      # leaf is only reachable through Caddy, which overwrites
+      BRIGID_SECURITY__CORS_ORIGINS: '["https://${BRIGID_DOMAIN}"]'
+      # seedling is only reachable through Caddy, which overwrites
       # X-Forwarded-For: rate-limit on that address, not on Caddy's own.
-      LEAF_SECURITY__TRUST_FORWARDED_FOR: "true"
+      BRIGID_SECURITY__TRUST_FORWARDED_FOR: "true"
     networks:
       - internal
     expose:
       - "8080"
     healthcheck:
-      # `leaf healthcheck` GETs the local /health (the distroless image has no
+      # `seedling healthcheck` GETs the local /health (the distroless image has no
       # shell or curl, so the binary probes itself). Same as the image's own
       # HEALTHCHECK, restated so the stack file is explicit.
-      test: ["CMD", "/leaf", "healthcheck"]
+      test: ["CMD", "/seedling", "healthcheck"]
       interval: 30s
       timeout: 5s
       start_period: 20s
@@ -111,7 +111,7 @@ services:
     # is an image index before trusting a re-pin.
     image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     restart: unless-stopped
-    # See the `leaf` service above — `restart:` alone does nothing under
+    # See the `seedling` service above — `restart:` alone does nothing under
     # `docker stack deploy`; this is what actually bounds retries in Swarm.
     deploy:
       restart_policy:
@@ -134,4 +134,4 @@ services:
     networks:
       - internal
     depends_on:
-      - leaf
+      - seedling

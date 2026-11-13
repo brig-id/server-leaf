@@ -1,18 +1,18 @@
-//! Configuration loading for `leaf`.
+//! Configuration loading for `seedling`.
 //!
 //! Configuration is assembled from up to two sources, in this order
 //! (later entries override earlier ones):
 //! 1. A TOML file, **only when** an explicit `--config <path>` is supplied
 //!    on the command line (`load(Some(path))`). There is **no** auto-discovery
-//!    of `leaf.toml` from the working directory.
-//! 2. Environment variables with the `LEAF_` prefix, using `__` as the
-//!    nesting separator (e.g. `LEAF_SERVER__PORT=9000` → `server.port`).
+//!    of `seedling.toml` from the working directory.
+//! 2. Environment variables with the `BRIGID_` prefix, using `__` as the
+//!    nesting separator (e.g. `BRIGID_SERVER__PORT=9000` → `server.port`).
 //!
 //! When `--config` is omitted, the configuration comes entirely from
-//! `LEAF_*` environment variables (plus the `#[serde(default)]` defaults).
+//! `BRIGID_*` environment variables (plus the `#[serde(default)]` defaults).
 //!
 //! `BRIGID_MASTER_KEY` is **always** read separately from the environment —
-//! it must never appear in `leaf.toml`.
+//! it must never appear in `seedling.toml`.
 
 use std::path::PathBuf;
 
@@ -28,7 +28,7 @@ pub struct Config {
     pub server: ServerConfig,
     // `database` and `security` are optional in the source: the module-level
     // docs promise an env-only deployment path, which only works if these
-    // tables can be entirely absent from the TOML / `LEAF_*` environment.
+    // tables can be entirely absent from the TOML / `BRIGID_*` environment.
     // Their fields all carry per-field defaults, and the sub-structs impl
     // `Default`, so figment can synthesise them from nothing.
     #[serde(default)]
@@ -54,9 +54,9 @@ pub struct ServerConfig {
     /// Override for the public base URL (e.g. `"https://example.com"`).
     ///
     /// When set, this is used as the OIDC issuer and WebAuthn origin instead
-    /// of the value inferred from `domain` and `port`. Use this when the leaf
+    /// of the value inferred from `domain` and `port`. Use this when the seedling
     /// binary runs behind a reverse proxy that handles TLS and serves on a
-    /// different public port (e.g. Caddy on 443 → leaf on 8080).
+    /// different public port (e.g. Caddy on 443 → seedling on 8080).
     pub public_url: Option<String>,
 
     /// Path to the TLS certificate PEM file. Required for HTTPS.
@@ -117,13 +117,18 @@ pub struct SecurityConfig {
     /// Rate-limit per client IP taken from `X-Forwarded-For` instead of the
     /// TCP peer address.
     ///
-    /// Set to `true` when `leaf` is only reachable through a reverse proxy
+    /// Set to `true` when `seedling` is only reachable through a reverse proxy
     /// that overwrites that header (Caddy does): every request then comes
     /// from the proxy's address, and without this all clients share a single
-    /// rate-limit bucket. Leave `false` when clients connect to `leaf`
+    /// rate-limit bucket. Leave `false` when clients connect to `seedling`
     /// directly, where they could forge the header to dodge the limit.
     #[serde(default)]
     pub trust_forwarded_for: bool,
+
+    /// Whether new accounts can be created on this server (default: `true`).
+    /// Closing it leaves sign-in and recovery untouched.
+    #[serde(default = "default_true")]
+    pub signup_open: bool,
 }
 
 impl Default for SecurityConfig {
@@ -133,6 +138,7 @@ impl Default for SecurityConfig {
             session_lifetime_seconds: default_session_lifetime(),
             cors_origins: Vec::new(),
             trust_forwarded_for: false,
+            signup_open: true,
         }
     }
 }
@@ -157,6 +163,43 @@ fn default_session_lifetime() -> u64 {
     12 * 3600
 }
 
+fn default_true() -> bool {
+    true
+}
+
+/// The configuration sections. An environment variable configures the server
+/// only if, after its prefix, it starts with one of these followed by `__`:
+/// `BRIGID_MASTER_KEY` and other `BRIGID_*` variables that are not settings
+/// never enter the configuration tree.
+const SECTIONS: [&str; 3] = ["server", "database", "security"];
+
+/// Environment settings under `prefix`: `<PREFIX>SECTION__KEY`.
+fn env_settings(prefix: &'static str) -> Env {
+    Env::prefixed(prefix)
+        .filter(|key| {
+            let key = key.as_str().to_ascii_lowercase();
+            SECTIONS.iter().any(|section| {
+                key.strip_prefix(section)
+                    .is_some_and(|rest| rest.starts_with("__"))
+            })
+        })
+        .split("__")
+}
+
+/// The prefix the settings had when this edition was named `leaf`. It is
+/// still read, below `BRIGID_`, and reported by [`legacy_env_settings`].
+const LEGACY_PREFIX: &str = "LEAF_";
+
+/// The names of the settings still given under the earlier prefix.
+pub fn legacy_env_settings() -> Vec<String> {
+    let mut names: Vec<String> = std::env::vars()
+        .map(|(name, _)| name)
+        .filter(|name| name.starts_with(LEGACY_PREFIX))
+        .collect();
+    names.sort();
+    names
+}
+
 /// Builds the shared TOML+env figment used by both [`load`] and
 /// [`load_database`], so the two never drift on precedence/prefix rules.
 fn figment(config_path: Option<&std::path::Path>) -> Figment {
@@ -164,27 +207,29 @@ fn figment(config_path: Option<&std::path::Path>) -> Figment {
     if let Some(path) = config_path {
         figment = figment.merge(Toml::file(path));
     }
-    figment.merge(Env::prefixed("LEAF_").split("__"))
+    figment
+        .merge(env_settings(LEGACY_PREFIX))
+        .merge(env_settings("BRIGID_"))
 }
 
 /// Load the merged configuration.
 ///
 /// `config_path` is optional — when `None`, configuration is read entirely
-/// from `LEAF_*` environment variables (intended for container deployments
+/// from `BRIGID_*` environment variables (intended for container deployments
 /// where TOML files complicate secret management).
 #[allow(clippy::result_large_err)] // figment::Error is inherently large; not reducible.
 pub fn load(config_path: Option<&std::path::Path>) -> Result<Config, figment::Error> {
     figment(config_path).extract()
 }
 
-/// Load just [`DatabaseConfig`] — used by `leaf rotate-key`, which needs the
+/// Load just [`DatabaseConfig`] — used by `seedling rotate-key`, which needs the
 /// database path and nothing else. Extracting `Config` in full would demand
 /// `server.domain` (required, no default) even though rotate-key never
 /// touches the server/TLS/CORS settings that field and its siblings exist
 /// for.
 ///
 /// `.focus("database")` matters here: the shared figment tree is shaped for
-/// `Config` as a whole, so `LEAF_DATABASE__PATH` nests under a `database`
+/// `Config` as a whole, so `BRIGID_DATABASE__PATH` nests under a `database`
 /// key (`{"database": {"path": ...}}`) rather than sitting at the top level.
 /// Extracting `DatabaseConfig` straight from that tree would look for a
 /// top-level `path` key, silently miss it, and fall back to
@@ -236,7 +281,7 @@ mod tests {
     #[test]
     fn sections_can_be_entirely_absent() {
         // The `minimal()` fixture sends empty `database` / `security` tables.
-        // A real `leaf.toml` is also allowed to omit those tables entirely
+        // A real `seedling.toml` is also allowed to omit those tables entirely
         // (the entire `[database]` or `[security]` header may be missing).
         // This test pins that behaviour so a future refactor of `Config`
         // cannot accidentally make those tables structurally required.
@@ -309,20 +354,20 @@ mod tests {
     #[test]
     #[allow(clippy::result_large_err)] // figment::Jail closure must return figment::Error.
     fn env_vars_override_toml_defaults() {
-        // Validates that environment variables in the LEAF_SECTION__KEY format
+        // Validates that environment variables in the BRIGID_SECTION__KEY format
         // correctly override TOML defaults via figment's Env provider.
         // Jail serialises env-var access to prevent interference with parallel tests.
         figment::Jail::expect_with(|jail| {
-            jail.set_env("LEAF_SERVER__HOST", "10.0.0.1");
-            jail.set_env("LEAF_SERVER__PORT", "9999");
-            jail.set_env("LEAF_SERVER__DOMAIN", "env.example.com");
-            jail.set_env("LEAF_DATABASE__PATH", "/tmp/env-test.db");
-            jail.set_env("LEAF_SECURITY__SESSION_TTL_SECONDS", "7200");
-            jail.set_env("LEAF_SECURITY__TRUST_FORWARDED_FOR", "true");
+            jail.set_env("BRIGID_SERVER__HOST", "10.0.0.1");
+            jail.set_env("BRIGID_SERVER__PORT", "9999");
+            jail.set_env("BRIGID_SERVER__DOMAIN", "env.example.com");
+            jail.set_env("BRIGID_DATABASE__PATH", "/tmp/env-test.db");
+            jail.set_env("BRIGID_SECURITY__SESSION_TTL_SECONDS", "7200");
+            jail.set_env("BRIGID_SECURITY__TRUST_FORWARDED_FOR", "true");
 
             let cfg: Config = Figment::new()
                 .merge(Serialized::defaults(minimal()))
-                .merge(figment::providers::Env::prefixed("LEAF_").split("__"))
+                .merge(env_settings("BRIGID_"))
                 .extract()?;
 
             assert_eq!(cfg.server.host, "10.0.0.1");
@@ -342,15 +387,15 @@ mod tests {
         // `split("__")` accepts a TOML-array-literal-encoded string for
         // sequence fields (e.g. `["https://a","https://b"]`); the
         // `deploy/compose.yaml` template relies on this encoding to push the
-        // production origin list through `LEAF_SECURITY__CORS_ORIGINS`.
+        // production origin list through `BRIGID_SECURITY__CORS_ORIGINS`.
         figment::Jail::expect_with(|jail| {
             jail.set_env(
-                "LEAF_SECURITY__CORS_ORIGINS",
+                "BRIGID_SECURITY__CORS_ORIGINS",
                 "[\"https://a.example\",\"https://b.example\"]",
             );
             let cfg: Config = Figment::new()
                 .merge(Serialized::defaults(minimal()))
-                .merge(figment::providers::Env::prefixed("LEAF_").split("__"))
+                .merge(env_settings("BRIGID_"))
                 .extract()?;
 
             assert_eq!(
@@ -362,5 +407,43 @@ mod tests {
             );
             Ok(())
         });
+    }
+
+    /// `BRIGID_MASTER_KEY` shares the prefix of the settings and must never
+    /// become one; the earlier `LEAF_` prefix is still read, and `BRIGID_`
+    /// wins over it.
+    #[test]
+    #[allow(clippy::result_large_err)]
+    fn only_settings_are_read_from_the_environment() {
+        figment::Jail::expect_with(|jail| {
+            jail.set_env("BRIGID_MASTER_KEY", "ab".repeat(32));
+            jail.set_env("BRIGID_MASTER_KEY_FILE", "/run/secrets/key");
+            jail.set_env("BRIGID_SERVER__DOMAIN", "new.example.com");
+            jail.set_env("LEAF_SERVER__DOMAIN", "old.example.com");
+            jail.set_env("LEAF_SERVER__PORT", "9001");
+            jail.set_env("BRIGID_SECURITY__SIGNUP_OPEN", "false");
+
+            let figment = figment(None);
+            assert!(figment.find_value("master_key").is_err());
+            assert!(figment.find_value("master_key_file").is_err());
+
+            let cfg: Config = figment.extract()?;
+            assert_eq!(cfg.server.domain, "new.example.com");
+            assert_eq!(cfg.server.port, 9001);
+            assert!(!cfg.security.signup_open);
+            assert_eq!(
+                legacy_env_settings(),
+                ["LEAF_SERVER__DOMAIN", "LEAF_SERVER__PORT"]
+            );
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn sign_up_is_open_by_default() {
+        let cfg: Config = Figment::from(Serialized::defaults(minimal()))
+            .extract()
+            .unwrap();
+        assert!(cfg.security.signup_open);
     }
 }

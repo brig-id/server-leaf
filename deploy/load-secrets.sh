@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# brig·id leaf — load the production secrets from OpenBao into Docker Swarm.
+# brig·id seedling — load the production secrets from OpenBao into Docker Swarm.
 #
 # Creates the `brigid_master_key` Docker secret that deploy/compose.yaml expects,
 # reading the value from OpenBao (KV v2) instead of a human pasting it by hand.
@@ -24,7 +24,7 @@
 #
 # Swarm secrets are immutable and in use by the running service: when the secret
 # already exists this script leaves it alone. Rotating the master key is a separate
-# procedure (re-encrypt the database with `leaf rotate-key`, then swap the secret).
+# procedure (re-encrypt the database with `seedling rotate-key`, then swap the secret).
 set -euo pipefail
 
 BAO_ADDR="${BAO_ADDR:-https://bao.baxyz.dev:8200}"
@@ -75,7 +75,7 @@ key="$(curl -fsS --max-time 15 -H "X-Vault-Token: $token" \
   "$BAO_ADDR/v1/$BAO_MOUNT/data/$BAO_PATH" | jq -er --arg f "$BAO_FIELD" '.data.data[$f] // empty')" \
   || die "cannot read field $BAO_FIELD at $BAO_MOUNT/$BAO_PATH (missing, or denied by policy)"
 
-# Same rule as leaf's own startup check: a 64-character hex string (32 bytes).
+# Same rule as seedling's own startup check: a 64-character hex string (32 bytes).
 [[ "$key" =~ ^[0-9a-fA-F]{64}$ ]] \
   || die "$BAO_MOUNT/$BAO_PATH#$BAO_FIELD is not a 64-character hex string (32 bytes)"
 

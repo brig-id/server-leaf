@@ -399,11 +399,10 @@ dependencies = [
 [[package]]
 name = "brigid-api"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4ddf83c0bab20684c408e1fa7546c49fff6c67aa#4ddf83c0bab20684c408e1fa7546c49fff6c67aa"
+source = "git+https://github.com/brig-id/core?rev=25698a55e853a417ea77ba0c018a7b625c8c2d6f#25698a55e853a417ea77ba0c018a7b625c8c2d6f"
 dependencies = [
  "axum",
  "base64ct",
- "brigid-did",
  "brigid-identity",
  "brigid-oidc",
  "brigid-store",
@@ -444,19 +443,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "brigid-did"
-version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4ddf83c0bab20684c408e1fa7546c49fff6c67aa#4ddf83c0bab20684c408e1fa7546c49fff6c67aa"
-dependencies = [
- "bs58",
- "serde",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "brigid-identity"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4ddf83c0bab20684c408e1fa7546c49fff6c67aa#4ddf83c0bab20684c408e1fa7546c49fff6c67aa"
+source = "git+https://github.com/brig-id/core?rev=25698a55e853a417ea77ba0c018a7b625c8c2d6f#25698a55e853a417ea77ba0c018a7b625c8c2d6f"
 dependencies = [
  "base64ct",
  "brigid-crypto",
@@ -472,7 +461,7 @@ dependencies = [
 [[package]]
 name = "brigid-oidc"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4ddf83c0bab20684c408e1fa7546c49fff6c67aa#4ddf83c0bab20684c408e1fa7546c49fff6c67aa"
+source = "git+https://github.com/brig-id/core?rev=25698a55e853a417ea77ba0c018a7b625c8c2d6f#25698a55e853a417ea77ba0c018a7b625c8c2d6f"
 dependencies = [
  "base64ct",
  "brigid-identity",
@@ -493,7 +482,7 @@ dependencies = [
 [[package]]
 name = "brigid-store"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4ddf83c0bab20684c408e1fa7546c49fff6c67aa#4ddf83c0bab20684c408e1fa7546c49fff6c67aa"
+source = "git+https://github.com/brig-id/core?rev=25698a55e853a417ea77ba0c018a7b625c8c2d6f#25698a55e853a417ea77ba0c018a7b625c8c2d6f"
 dependencies = [
  "base64ct",
  "brigid-crypto",
@@ -513,7 +502,7 @@ dependencies = [
 [[package]]
 name = "brigid-webauthn"
 version = "0.1.0"
-source = "git+https://github.com/brig-id/core?rev=4ddf83c0bab20684c408e1fa7546c49fff6c67aa#4ddf83c0bab20684c408e1fa7546c49fff6c67aa"
+source = "git+https://github.com/brig-id/core?rev=25698a55e853a417ea77ba0c018a7b625c8c2d6f#25698a55e853a417ea77ba0c018a7b625c8c2d6f"
 dependencies = [
  "brigid-crypto",
  "brigid-identity",
@@ -526,15 +515,6 @@ dependencies = [
  "uuid",
  "webauthn-rs",
  "webauthn-rs-proto",
-]
-
-[[package]]
-name = "bs58"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
-dependencies = [
- "tinyvec",
 ]
 
 [[package]]
@@ -1994,39 +1974,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "leaf"
-version = "0.3.0"
-dependencies = [
- "axum",
- "axum-server",
- "base64ct",
- "brigid-api",
- "brigid-crypto",
- "brigid-identity",
- "brigid-oidc",
- "brigid-store",
- "brigid-webauthn",
- "clap",
- "figment",
- "http-body-util",
- "reqwest",
- "rustls",
- "serde",
- "serde_json",
- "tempfile",
- "time",
- "tokio",
- "tower",
- "tower-http 0.7.1",
- "tracing",
- "tracing-subscriber",
- "url",
- "webauthn-authenticator-rs",
- "webauthn-rs",
- "webauthn-rs-proto",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3117,6 +3064,39 @@ checksum = "6ce2691df843ecc5d231c0b14ece2acc3efb62c0a398c7e1d875f3983ce020e3"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "seedling"
+version = "0.3.0"
+dependencies = [
+ "axum",
+ "axum-server",
+ "base64ct",
+ "brigid-api",
+ "brigid-crypto",
+ "brigid-identity",
+ "brigid-oidc",
+ "brigid-store",
+ "brigid-webauthn",
+ "clap",
+ "figment",
+ "http-body-util",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "time",
+ "tokio",
+ "tower",
+ "tower-http 0.7.1",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "webauthn-authenticator-rs",
+ "webauthn-rs",
+ "webauthn-rs-proto",
 ]
 
 [[package]]

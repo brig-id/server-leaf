@@ -1,6 +1,7 @@
 {
   "conventionalCommits.gitmoji": true,
   "conventionalCommits.scopes": [
+    "seedling",
     "leaf",
     "config",
     "docker",
