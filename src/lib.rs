@@ -87,9 +87,9 @@ fn is_hash_source(s: &str) -> bool {
 /// Without it (a UI build that predates the manifest, or no UI), inline
 /// sources are allowed with `'unsafe-inline'`, and the log says so.
 ///
-/// `fonts.bunny.net` is the external font host the UI loads from; img-src and
-/// connect-src allow Unsplash, whose daily background photo the login and
-/// register pages fetch straight from the browser (app/src/lib/unsplash.ts).
+/// The policy names no origin but the server's own: the interface loads
+/// nothing from anywhere else (spec, `interface.md` §1), and a build of it
+/// that tried to would be stopped here.
 pub fn ui_csp(dist: Option<&Path>) -> String {
     let hashes = dist.and_then(|d| {
         let path = d.join("csp-hashes.json");
@@ -124,10 +124,11 @@ pub fn ui_csp(dist: Option<&Path>) -> String {
     format!(
         "default-src 'self'; \
          script-src 'self' {script}; \
-         style-src 'self' {style} https://fonts.bunny.net; \
-         img-src 'self' data: https://images.unsplash.com; \
-         font-src 'self' https://fonts.bunny.net; \
-         connect-src 'self' https://api.unsplash.com; \
+         style-src 'self' {style}; \
+         img-src 'self' data:; \
+         font-src 'self'; \
+         connect-src 'self'; \
+         form-action 'self'; \
          frame-ancestors 'none'; \
          object-src 'none'; \
          base-uri 'self'"
@@ -148,10 +149,33 @@ mod csp_tests {
         .unwrap();
         let csp = ui_csp(Some(dir.path()));
         assert!(csp.contains("script-src 'self' 'sha256-AAAA';"), "{csp}");
-        assert!(csp.contains("style-src 'self' 'sha256-BB+/=' https://fonts.bunny.net;"));
+        assert!(csp.contains("style-src 'self' 'sha256-BB+/=';"));
         assert!(!csp.contains("unsafe-inline"));
         assert!(!csp.contains("unsafe-eval"), "only hash sources are copied");
         assert!(!csp.contains("script-src *"));
+    }
+
+    /// The interface loads nothing from anywhere else, so the policy has no
+    /// origin to allow: a scheme, a host or a wildcard in it is a regression.
+    #[test]
+    fn names_no_origin_but_the_servers_own() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("csp-hashes.json"),
+            r#"{"script":["'sha256-AAAA'"],"style":["'sha256-BBBB'"],"pages":[]}"#,
+        )
+        .unwrap();
+        for csp in [ui_csp(Some(dir.path())), ui_csp(None)] {
+            for part in csp.split([' ', ';']).filter(|p| !p.is_empty()) {
+                let allowed = part.ends_with("-src")
+                    || part.ends_with("-ancestors")
+                    || part.ends_with("-uri")
+                    || part.ends_with("-action")
+                    || matches!(part, "'self'" | "'none'" | "'unsafe-inline'" | "data:")
+                    || part.starts_with("'sha256-");
+                assert!(allowed, "unexpected source {part:?} in {csp}");
+            }
+        }
     }
 
     #[test]
