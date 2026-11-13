@@ -1,4 +1,4 @@
-# brig·id leaf — development deployment (plain HTTP, no TLS, no Docker secrets)
+# brig·id seedling — development deployment (plain HTTP, no TLS, no Docker secrets)
 #
 # For local development only. Do NOT use in production.
 #
@@ -10,15 +10,15 @@
 #
 # The compiled UI dist is bind-mounted from the host — no Node.js stage runs
 # inside Docker for development. To test the full multi-stage Docker build
-# (including the UI stage), run `docker build` from the server-leaf root after
+# (including the UI stage), run `docker build` from the server-seedling root after
 # copying the app repo into `ui/`:
-#   cp -r /workspaces/app ./ui && docker build -t brigid/leaf:dev .
+#   cp -r /workspaces/app ./ui && docker build -t brigid/seedling:dev .
 
 volumes:
-  leaf-data-dev:
+  seedling-data-dev:
 
 services:
-  leaf:
+  seedling:
     build:
       context: ..
       dockerfile: Dockerfile
@@ -27,18 +27,18 @@ services:
     tmpfs:
       - /tmp:size=64m,mode=1777
     volumes:
-      - leaf-data-dev:/data
+      - seedling-data-dev:/data
       # Pre-built Qwik UI static files. Run `pnpm build` in brig-id/app first.
       - /workspaces/app/dist:/ui/dist:ro
     environment:
-      RUST_LOG: "brigid_api=debug,leaf=debug,tower_http=debug,warn"
+      RUST_LOG: "brigid_api=debug,seedling=debug,tower_http=debug,warn"
       BRIGID_MASTER_KEY: "${BRIGID_MASTER_KEY:?BRIGID_MASTER_KEY must be set}"
-      LEAF_SERVER__DOMAIN: "${BRIGID_DOMAIN:-localhost}"
-      LEAF_SERVER__HOST: "0.0.0.0"
-      LEAF_SERVER__PORT: "8080"
-      LEAF_DATABASE__PATH: "/data/brigid.db"
+      BRIGID_SERVER__DOMAIN: "${BRIGID_DOMAIN:-localhost}"
+      BRIGID_SERVER__HOST: "0.0.0.0"
+      BRIGID_SERVER__PORT: "8080"
+      BRIGID_DATABASE__PATH: "/data/brigid.db"
       # Serve the Qwik UI static files from the bind-mounted dist directory.
-      LEAF_SERVER__UI_DIST_DIR: "/ui/dist"
+      BRIGID_SERVER__UI_DIST_DIR: "/ui/dist"
     ports:
       - "8080:8080"
     healthcheck:

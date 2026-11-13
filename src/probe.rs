@@ -1,4 +1,4 @@
-//! `leaf healthcheck`: a liveness probe the distroless image can run itself.
+//! `seedling healthcheck`: a liveness probe the distroless image can run itself.
 //!
 //! The runtime image has no shell, curl or wget, so Docker's `HEALTHCHECK`
 //! (and Swarm) invoke the binary: one plain HTTP GET on the local `/health`,

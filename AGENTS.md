@@ -1,4 +1,4 @@
-# AGENTS.md — brig·id `server-leaf`
+# AGENTS.md — brig·id `server-seedling`
 
 This repository contains the **single-server deployment binary** for brig·id.
 It wires together all `core` crates into a production-ready executable.
@@ -10,8 +10,8 @@ issues, pull requests. No exceptions.
 
 ## Scope
 
-- Binary `leaf` (`src/main.rs`) — the only entry point
-- Configuration loading (`leaf.toml` + env vars via `figment`)
+- Binary `seedling` (`src/main.rs`) — the only entry point
+- Configuration loading (`seedling.toml` + env vars via `figment`)
 - Serving the pre-built `web` UI as static files (`server.ui_dist_dir`, SPA fallback) —
   the reference mechanism `server-grove`/`server-forest` are expected to follow
 - Docker multi-stage build + distroless image
@@ -27,7 +27,7 @@ TODOs, backlog ideas, and phase/release status for this repo are tracked as card
 
 ## Hard security constraints
 
-- **`BRIGID_MASTER_KEY` must never appear in `leaf.toml`** — env var or separate secret file only.
+- **`BRIGID_MASTER_KEY` must never appear in `seedling.toml`** — env var or separate secret file only.
 - **Refuse to start** if `MASTER_KEY` is absent or decodes to fewer than 32 bytes.
 - **TLS 1.3 minimum** — configured via rustls `ServerConfig`; no OpenSSL for TLS.
   The build container installs `libssl-dev` for `webauthn-rs`'s attestation chain
@@ -91,7 +91,7 @@ Format: `type(scope): <emoji> description`
 
 | Scope | Maps to |
 | --- | --- |
-| `leaf` | `src/main.rs`, binary entry point |
+| `seedling` | `src/main.rs`, binary entry point |
 | `config` | Configuration loading (`src/config.rs`) |
 | `docker` | `Dockerfile`, `deploy/` |
 | `ci` | `.github/workflows/` |
@@ -101,7 +101,7 @@ Format: `type(scope): <emoji> description`
 update this table and `.vscode/settings.json`.
 
 ```text
-feat(leaf): ✨ serve Qwik static assets from ui/dist/
+feat(seedling): ✨ serve Qwik static assets from ui/dist/
 fix(config): 🐛 reject partial TLS config at startup
 ci(ci): 👷 add conventional commit check
 chore(deps): 📦 bump brigid-api to latest core rev
@@ -110,29 +110,29 @@ chore(deps): 📦 bump brigid-api to latest core rev
 ## Commands
 
 ```bash
-cargo build --release -p leaf
-docker build -t brigid/leaf .
+cargo build --release -p seedling
+docker build -t brigid/seedling .
 docker compose -f deploy/compose.dev.yaml up
 curl http://localhost:8080/health
-leaf healthcheck                     # liveness probe (Docker HEALTHCHECK), exit 0/1
+seedling healthcheck                     # liveness probe (Docker HEALTHCHECK), exit 0/1
 curl http://localhost:9100/metrics   # when server.metrics_port = 9100
 ```
 
 ## Local dev without Docker (paired with `web`'s HTTPS setup)
 
-Faster inner loop than `compose.dev.yaml` when iterating on `leaf` itself — run the
+Faster inner loop than `compose.dev.yaml` when iterating on `seedling` itself — run the
 binary directly against the `web` dev server instead of a prebuilt `dist/`. Must match
 `web`'s dev origin (`brigid.localhost:5173`, see `web/README.md`'s "HTTPS in dev"
 section) or WebAuthn ceremonies fail with an origin/RP-ID mismatch.
 
 ```bash
 export BRIGID_MASTER_KEY=$(openssl rand -hex 32)   # one-time per shell/machine — any 64 hex chars
-export LEAF_DATABASE__PATH=./brigid-dev.db          # gitignored, auto-created on first run
-export LEAF_SERVER__DOMAIN=brigid.localhost         # must equal web's dev host (WebAuthn RP ID)
-export LEAF_SERVER__PUBLIC_URL=https://brigid.localhost:5173  # https — see web/README.md
+export BRIGID_DATABASE__PATH=./brigid-dev.db          # gitignored, auto-created on first run
+export BRIGID_SERVER__DOMAIN=brigid.localhost         # must equal web's dev host (WebAuthn RP ID)
+export BRIGID_SERVER__PUBLIC_URL=https://brigid.localhost:5173  # https — see web/README.md
 
-cargo build -p leaf
-"$CARGO_TARGET_DIR"/debug/leaf
+cargo build -p seedling
+"$CARGO_TARGET_DIR"/debug/seedling
 ```
 
 Then in `web`: generate the mkcert cert once (`web/README.md`'s "HTTPS in dev"), and

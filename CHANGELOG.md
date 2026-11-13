@@ -1,13 +1,29 @@
 # Changelog
 
-All notable changes to `server-leaf` are documented in this file.
+All notable changes to `server-seedling` (named `server-leaf` up to 0.3.0) are documented
+in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **This edition is named seedling** (was leaf). The repository is
+  `server-seedling`, the binary and its commands `seedling`, the image
+  `ghcr.io/brig-id/seedling`, the metrics `brigid_http_*`.
+- **Settings are read under the `BRIGID_` prefix** (`BRIGID_SERVER__DOMAIN`…),
+  the same for the three editions. The earlier `LEAF_` prefix is still read
+  for now, below it, with a warning at start that names the settings to rename.
+- **Licence: AGPL-3.0-or-later** (was LGPL-3.0-or-later). Released versions
+  keep the licence they were published under.
+- The server's DID document (`/.well-known/did.json`) is no longer served.
+
 ### Added
+
+- `security.signup_open` (default `true`): `false` closes the creation of
+  accounts; sign-in and recovery are untouched.
 
 - Websites can sign people in through `leaf` (brig-id/core#92, ADR-005 §2):
   `/authorize`, `/token` and `/.well-known/openid-configuration` are served.

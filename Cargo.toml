@@ -1,13 +1,13 @@
 [package]
-name = "leaf"
+name = "seedling"
 version = "0.3.0"
 edition = "2024"
-license = "LGPL-3.0-or-later"
+license = "AGPL-3.0-or-later"
 publish = false
 rust-version = "1.89"
 
 [[bin]]
-name = "leaf"
+name = "seedling"
 path = "src/main.rs"
 
 [lib]
@@ -15,11 +15,11 @@ path = "src/lib.rs"
 
 [dependencies]
 # brig·id core crates (git dep pointing to the core repository)
-brigid-api = { git = "https://github.com/brig-id/core", rev = "4ddf83c0bab20684c408e1fa7546c49fff6c67aa", package = "brigid-api" }
-brigid-store = { git = "https://github.com/brig-id/core", rev = "4ddf83c0bab20684c408e1fa7546c49fff6c67aa", package = "brigid-store" }
-brigid-identity = { git = "https://github.com/brig-id/core", rev = "4ddf83c0bab20684c408e1fa7546c49fff6c67aa", package = "brigid-identity" }
-brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "4ddf83c0bab20684c408e1fa7546c49fff6c67aa", package = "brigid-webauthn" }
-brigid-oidc = { git = "https://github.com/brig-id/core", rev = "4ddf83c0bab20684c408e1fa7546c49fff6c67aa", package = "brigid-oidc" }
+brigid-api = { git = "https://github.com/brig-id/core", rev = "25698a55e853a417ea77ba0c018a7b625c8c2d6f", package = "brigid-api" }
+brigid-store = { git = "https://github.com/brig-id/core", rev = "25698a55e853a417ea77ba0c018a7b625c8c2d6f", package = "brigid-store" }
+brigid-identity = { git = "https://github.com/brig-id/core", rev = "25698a55e853a417ea77ba0c018a7b625c8c2d6f", package = "brigid-identity" }
+brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "25698a55e853a417ea77ba0c018a7b625c8c2d6f", package = "brigid-webauthn" }
+brigid-oidc = { git = "https://github.com/brig-id/core", rev = "25698a55e853a417ea77ba0c018a7b625c8c2d6f", package = "brigid-oidc" }
 
 # Cryptographic primitives
 brigid-crypto = { git = "https://github.com/brig-id/crypto", tag = "v0.1.0" }
@@ -57,7 +57,7 @@ tempfile = "3"
 base64ct = { version = "1", features = ["alloc"] }
 tower = { version = "0.5", features = ["util"] }
 
-# E2E smoke tests (tests/smoke.rs) — real HTTP against a spawned `leaf`
+# E2E smoke tests (tests/smoke.rs) — real HTTP against a spawned `seedling`
 # subprocess, exercising a full WebAuthn ceremony via a software passkey.
 reqwest = { version = "0.13", features = ["json"] }
 webauthn-authenticator-rs = { version = "0.5", features = ["softpasskey"] }

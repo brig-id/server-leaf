@@ -24,11 +24,11 @@ use tower_http::set_header::SetResponseHeaderLayer;
 /// `brigid_api::build_router` already applies a version of this same header
 /// set, but only around the routes it defines *before* returning — in axum
 /// 0.8, a `.layer()` wraps whatever routes/fallback exist at the time it's
-/// called, not ones added afterwards. Since `server-leaf` always calls
+/// called, not ones added afterwards. Since `server-seedling` always calls
 /// `fallback_service` *after* `build_router` returns, that inner layer does
 /// not reach the UI responses (`/login`, `/register`, static assets, …).
 /// Applying the headers here, after the fallback is attached, covers every
-/// response `leaf` serves. `if_not_present` leaves API routes with the
+/// response `seedling` serves. `if_not_present` leaves API routes with the
 /// headers of the inner layer, whose CSP is stricter (JSON only); UI
 /// responses get [`ui_csp`].
 pub fn apply_ui_fallback(router: Router, dist: Option<&Path>) -> Router {

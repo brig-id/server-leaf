@@ -11,7 +11,7 @@ use std::fs;
 
 use axum::{Router, body::Body, http::Request, routing::get};
 use http_body_util::BodyExt;
-use leaf::apply_ui_fallback;
+use seedling::apply_ui_fallback;
 use tempfile::TempDir;
 use tower::ServiceExt;
 

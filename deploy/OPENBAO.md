@@ -18,24 +18,24 @@ In the Tailscale admin console:
 
 1. Access controls: declare the tag and let the leaf-1 VM reach OpenBao, and nothing else. The
    tag names the org (the tailnet is shared with other projects) and the role, so a future
-   second leaf reuses it; the per-machine restriction is the AppRole's CIDR binding below.
+   second seedling reuses it; the per-machine restriction is the AppRole's CIDR binding below.
    `dst` takes an IP or a `hosts` alias, not a bare machine name: without the `hosts` entry
    the editor rejects the policy (`"fajro": invalid address`).
 
    ```jsonc
-   "tagOwners": { "tag:brigid-leaf": ["autogroup:admin"] },
+   "tagOwners": { "tag:brigid-seedling": ["autogroup:admin"] },
    // The tailnet IP of the machine serving OpenBao (what bao.baxyz.dev resolves to).
    "hosts":     { "fajro": "100.67.31.127" },
    "grants": [
-     { "src": ["tag:brigid-leaf"], "dst": ["fajro"], "ip": ["tcp:8200"] }
+     { "src": ["tag:brigid-seedling"], "dst": ["fajro"], "ip": ["tcp:8200"] }
    ],
    "tests": [
-     { "src": "tag:brigid-leaf", "accept": ["fajro:8200"], "deny": ["fajro:22"] }
+     { "src": "tag:brigid-seedling", "accept": ["fajro:8200"], "deny": ["fajro:22"] }
    ]
    ```
 
 2. Settings → Keys → Generate auth key: not reusable, not ephemeral, pre-approved,
-   tag `tag:brigid-leaf`. Tagged nodes have key expiry off, so the VM stays connected.
+   tag `tag:brigid-seedling`. Tagged nodes have key expiry off, so the VM stays connected.
 
 On the leaf-1 VM (`ssh ubuntu@helm.brig.id`):
 
@@ -88,7 +88,7 @@ you reviewed (`sha256sum deploy/load-secrets.sh` in a checkout):
 
 ```bash
 curl -fsSLo load-secrets.sh \
-  https://raw.githubusercontent.com/brig-id/server-leaf/main/deploy/load-secrets.sh
+  https://raw.githubusercontent.com/brig-id/server-seedling/main/deploy/load-secrets.sh
 sha256sum load-secrets.sh
 chmod +x load-secrets.sh
 ```
@@ -106,5 +106,5 @@ sudo ./load-secrets.sh   # creates the Docker secret only if it is missing
 ```
 
 The script leaves an existing secret alone: Swarm secrets cannot change while a service uses
-them. Rotating the master key stays a separate procedure (`leaf rotate-key`, then a new
+them. Rotating the master key stays a separate procedure (`seedling rotate-key`, then a new
 secret).
