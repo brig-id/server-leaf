@@ -24,6 +24,7 @@ struct TestServer {
     child: Child,
     pub base_url: String,
     pub client: reqwest::Client,
+    pub db_path: std::path::PathBuf,
     _db_dir: tempfile::TempDir,
     _ui_dir: tempfile::TempDir,
 }
@@ -105,6 +106,7 @@ fn start_leaf_with(extra_env: &[(&str, &str)]) -> TestServer {
             )
             .build()
             .unwrap(),
+        db_path,
         _db_dir: db_dir,
         _ui_dir: ui_dir,
     }
@@ -148,7 +150,7 @@ async fn health_returns_200() {
 }
 
 #[tokio::test]
-async fn no_openid_configuration_before_the_relying_party_flow() {
+async fn openid_configuration_describes_the_code_flow() {
     let server = start_leaf();
     let resp = server
         .client
@@ -159,17 +161,17 @@ async fn no_openid_configuration_before_the_relying_party_flow() {
         .send()
         .await
         .unwrap();
-    // ADR-005 §3: it comes back with the Authorization Code flow. Unknown
-    // paths fall back to the UI's HTML, never to a JSON configuration.
-    let content_type = resp
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or_default()
-        .to_string();
-    assert!(
-        !content_type.contains("json"),
-        "no OpenID configuration served: {content_type}"
+    assert_eq!(resp.status(), 200);
+    let body = json_body(resp).await;
+    assert_eq!(body["issuer"], server.base_url);
+    assert_eq!(
+        body["authorization_endpoint"],
+        format!("{}/authorize", server.base_url)
+    );
+    assert_eq!(body["token_endpoint"], format!("{}/token", server.base_url));
+    assert_eq!(
+        body["id_token_signing_alg_values_supported"],
+        json!(["EdDSA"])
     );
 }
 
@@ -467,4 +469,248 @@ fn for_soft_passkey(mut ccr: CreationChallengeResponse) -> CreationChallengeResp
     selection.resident_key = Some(webauthn_rs_proto::ResidentKeyRequirement::Discouraged);
     selection.require_resident_key = false;
     ccr
+}
+
+// ---------------------------------------------------------------------------
+// Relying parties: `leaf client`, then the whole sign-in (ADR-005 §2)
+// ---------------------------------------------------------------------------
+
+/// Runs `leaf client …` on the server's database and returns its standard
+/// output, with whether it succeeded.
+fn leaf_client(server: &TestServer, args: &[&str]) -> (bool, String) {
+    let out = Command::new(leaf_bin())
+        .arg("client")
+        .args(args)
+        .env("BRIGID_MASTER_KEY", TEST_MASTER_KEY)
+        .env("LEAF_DATABASE__PATH", server.db_path.display().to_string())
+        .output()
+        .expect("run leaf client");
+    (
+        out.status.success(),
+        String::from_utf8(out.stdout).expect("UTF-8 output"),
+    )
+}
+
+/// The value of `key=` in the output of `leaf client add`.
+fn output_value(stdout: &str, key: &str) -> Option<String> {
+    stdout
+        .lines()
+        .find_map(|line| line.strip_prefix(&format!("{key}=")))
+        .map(str::to_owned)
+}
+
+#[tokio::test]
+async fn a_site_registered_from_the_command_line_signs_a_person_in() {
+    use base64ct::{Base64UrlUnpadded, Encoding};
+
+    // RFC 7636 appendix B.
+    const VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+    const CHALLENGE: &str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+    const REDIRECT: &str = "https://shop.example/cb";
+
+    let server = start_leaf();
+    let base = &server.base_url;
+
+    // -- the operator registers the site, on the database of the running server --
+    let (ok, out) = leaf_client(
+        &server,
+        &["add", "--name", "Shop", "--redirect-uri", REDIRECT],
+    );
+    assert!(ok, "leaf client add: {out}");
+    let client_id = output_value(&out, "client_id").expect("client_id is printed");
+    let secret = output_value(&out, "client_secret").expect("a secret is printed once");
+    let (ok, out) = leaf_client(&server, &["list"]);
+    assert!(
+        ok && out.contains(&client_id) && out.contains("Shop"),
+        "{out}"
+    );
+    assert!(!out.contains(&secret), "the secret is never shown again");
+    // A redirect URI that is not https is refused.
+    let (ok, _) = leaf_client(
+        &server,
+        &[
+            "add",
+            "--name",
+            "Bad",
+            "--redirect-uri",
+            "http://shop.example/cb",
+        ],
+    );
+    assert!(!ok);
+
+    // -- a person signs up: the session is in a cookie --
+    let origin = url::Url::parse(base).unwrap();
+    let mut passkey = WebauthnAuthenticator::new(SoftPasskey::new(true));
+    let resp = server
+        .client
+        .post(format!("{base}/auth/register/begin"))
+        .json(&json!({ "username": "smoke-site@localhost" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let begin = json_body(resp).await;
+    let ccr: CreationChallengeResponse =
+        serde_json::from_value(begin["challenge"].clone()).unwrap();
+    let credential = passkey
+        .do_registration(origin, for_soft_passkey(ccr))
+        .expect("registration ceremony");
+    let resp = server
+        .client
+        .post(format!("{base}/auth/register/finish"))
+        .json(&json!({ "session_id": begin["session_id"], "credential": credential }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 204);
+    let cookie = session_cookie(&resp);
+    let identities = json_body(
+        server
+            .client
+            .get(format!("{base}/account/identities"))
+            .header(reqwest::header::COOKIE, &cookie)
+            .send()
+            .await
+            .unwrap(),
+    )
+    .await;
+    let identity = identities[0]["id"].as_str().expect("a starter identity");
+
+    // -- the site sends the browser: no cookie, no Origin, no redirect followed --
+    let browser = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let authorize = |client_id: &str| {
+        format!(
+            "{base}/authorize?response_type=code&scope=openid&client_id={client_id}\
+             &redirect_uri=https%3A%2F%2Fshop.example%2Fcb&state=xyz&nonce=n-0S6\
+             &code_challenge={CHALLENGE}&code_challenge_method=S256"
+        )
+    };
+    let resp = browser.get(authorize(&client_id)).send().await.unwrap();
+    assert_eq!(resp.status(), 303);
+    let location = resp.headers()["location"].to_str().unwrap().to_owned();
+    let request = location
+        .strip_prefix("/continue/?request=")
+        .unwrap_or_else(|| panic!("unexpected redirect: {location}"));
+
+    // -- the linking page: the site's name, then the person's choice --
+    let view = json_body(
+        server
+            .client
+            .get(format!("{base}/auth/authorize/{request}"))
+            .header(reqwest::header::COOKIE, &cookie)
+            .send()
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(view["client"]["name"], "Shop");
+    assert_eq!(view["must_sign_in"], false);
+    let resp = server
+        .client
+        .post(format!("{base}/auth/authorize/{request}/approve"))
+        .header(reqwest::header::COOKIE, &cookie)
+        .json(&json!({ "identity_id": identity }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let answer = json_body(resp).await;
+    let back = url::Url::parse(answer["redirect_to"].as_str().unwrap()).unwrap();
+    assert!(back.as_str().starts_with(REDIRECT), "{back}");
+    let query: std::collections::HashMap<_, _> = back.query_pairs().into_owned().collect();
+    assert_eq!(query["state"], "xyz");
+    assert_eq!(query["iss"], *base);
+
+    // -- the site exchanges the code, with its secret and the PKCE verifier --
+    let form = url::form_urlencoded::Serializer::new(String::new())
+        .extend_pairs([
+            ("grant_type", "authorization_code"),
+            ("code", query["code"].as_str()),
+            ("redirect_uri", REDIRECT),
+            ("code_verifier", VERIFIER),
+        ])
+        .finish();
+    let resp = browser
+        .post(format!("{base}/token"))
+        .basic_auth(&client_id, Some(&secret))
+        .header(
+            reqwest::header::CONTENT_TYPE,
+            "application/x-www-form-urlencoded",
+        )
+        .body(form.clone())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let tokens = json_body(resp).await;
+    let id_token = tokens["id_token"].as_str().expect("an ID token");
+    let payload = id_token.split('.').nth(1).expect("a JWT");
+    let claims: Value =
+        serde_json::from_slice(&Base64UrlUnpadded::decode_vec(payload).unwrap()).unwrap();
+    assert_eq!(claims["iss"], *base);
+    assert_eq!(claims["aud"], client_id);
+    assert_eq!(claims["nonce"], "n-0S6");
+    assert_eq!(claims["sub"].as_str().unwrap().len(), 43, "a VSID");
+    // The identifier and the token's own fields, nothing about the identity.
+    let mut names: Vec<&str> = claims
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    names.sort_unstable();
+    assert_eq!(
+        names,
+        [
+            "aud",
+            "auth_time",
+            "exp",
+            "iat",
+            "iss",
+            "jti",
+            "nonce",
+            "sub"
+        ]
+    );
+
+    // The code worked once; a wrong secret gets nothing.
+    let resp = browser
+        .post(format!("{base}/token"))
+        .basic_auth(&client_id, Some(&secret))
+        .header(
+            reqwest::header::CONTENT_TYPE,
+            "application/x-www-form-urlencoded",
+        )
+        .body(form.clone())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+    let resp = browser
+        .post(format!("{base}/token"))
+        .basic_auth(&client_id, Some("wrong"))
+        .header(
+            reqwest::header::CONTENT_TYPE,
+            "application/x-www-form-urlencoded",
+        )
+        .body(form.clone())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+
+    // -- the operator removes the site: its requests stay on this server --
+    let (ok, _) = leaf_client(&server, &["remove", &client_id]);
+    assert!(ok);
+    let resp = browser.get(authorize(&client_id)).send().await.unwrap();
+    assert_eq!(resp.status(), 303);
+    assert_eq!(
+        resp.headers()["location"],
+        "/continue/?error=unknown_client"
+    );
+    let (ok, _) = leaf_client(&server, &["remove", &client_id]);
+    assert!(!ok, "removing it twice fails");
 }
