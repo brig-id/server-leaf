@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Websites can sign people in through `leaf` (brig-id/core#92, ADR-005 §2):
+  `/authorize`, `/token` and `/.well-known/openid-configuration` are served.
+  Authorization Code flow with PKCE (`S256`, mandatory), ID tokens signed
+  with EdDSA whose only statement about the person is an identifier for that
+  site.
+- `leaf client add --name <name> --redirect-uri <uri> [--public]`,
+  `leaf client list` and `leaf client remove <client_id>` register the sites
+  that may do so. `add` prints the `client_id` and, for a site with a secret,
+  the `client_secret`, once: only its hash is stored.
+
 ## [0.3.0] - 2026-11-13
 
 ### Added

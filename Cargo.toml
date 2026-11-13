@@ -15,11 +15,11 @@ path = "src/lib.rs"
 
 [dependencies]
 # brig·id core crates (git dep pointing to the core repository)
-brigid-api = { git = "https://github.com/brig-id/core", rev = "e6782e88d86208b147de944ae9b1cc44e335e45b", package = "brigid-api" }
-brigid-store = { git = "https://github.com/brig-id/core", rev = "e6782e88d86208b147de944ae9b1cc44e335e45b", package = "brigid-store" }
-brigid-identity = { git = "https://github.com/brig-id/core", rev = "e6782e88d86208b147de944ae9b1cc44e335e45b", package = "brigid-identity" }
-brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "e6782e88d86208b147de944ae9b1cc44e335e45b", package = "brigid-webauthn" }
-brigid-oidc = { git = "https://github.com/brig-id/core", rev = "e6782e88d86208b147de944ae9b1cc44e335e45b", package = "brigid-oidc" }
+brigid-api = { git = "https://github.com/brig-id/core", rev = "4ddf83c0bab20684c408e1fa7546c49fff6c67aa", package = "brigid-api" }
+brigid-store = { git = "https://github.com/brig-id/core", rev = "4ddf83c0bab20684c408e1fa7546c49fff6c67aa", package = "brigid-store" }
+brigid-identity = { git = "https://github.com/brig-id/core", rev = "4ddf83c0bab20684c408e1fa7546c49fff6c67aa", package = "brigid-identity" }
+brigid-webauthn = { git = "https://github.com/brig-id/core", rev = "4ddf83c0bab20684c408e1fa7546c49fff6c67aa", package = "brigid-webauthn" }
+brigid-oidc = { git = "https://github.com/brig-id/core", rev = "4ddf83c0bab20684c408e1fa7546c49fff6c67aa", package = "brigid-oidc" }
 
 # Cryptographic primitives
 brigid-crypto = { git = "https://github.com/brig-id/crypto", tag = "v0.1.0" }
@@ -53,6 +53,8 @@ time = "0.3"
 figment = { version = "0.10", features = ["test"] }
 http-body-util = "0.1"
 tempfile = "3"
+# Reads the payload of an ID token in the relying-party smoke test.
+base64ct = { version = "1", features = ["alloc"] }
 tower = { version = "0.5", features = ["util"] }
 
 # E2E smoke tests (tests/smoke.rs) — real HTTP against a spawned `leaf`

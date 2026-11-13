@@ -76,6 +76,14 @@ enum Command {
     /// a later start. Restart leaf afterwards to sign with the new key.
     RotateOidcKey,
 
+    /// Manage the relying parties: the sites that may ask this server to
+    /// sign people in. Works on the database directly, with the server
+    /// running or stopped; needs the master key like a normal run.
+    Client {
+        #[command(subcommand)]
+        action: ClientCommand,
+    },
+
     /// Liveness probe for Docker's HEALTHCHECK: GET the local `/health`,
     /// exit 0 on 200, 1 otherwise. Reads only `LEAF_SERVER__PORT` (default
     /// 8080), so it needs neither the config file nor the master key.
@@ -83,6 +91,34 @@ enum Command {
         /// Port of the plain-HTTP listener to probe.
         #[arg(long, env = "LEAF_SERVER__PORT", default_value_t = 8080)]
         port: u16,
+    },
+}
+
+#[derive(Subcommand)]
+enum ClientCommand {
+    /// Register a site. Prints `client_id=…` and, unless `--public`,
+    /// `client_secret=…` on standard output. The secret is stored hashed:
+    /// this is the only time it can be read.
+    Add {
+        /// The site's name, shown to people when they sign in to it.
+        #[arg(long)]
+        name: String,
+        /// Where the site may send people back, compared exactly. Repeat for
+        /// several. `https` only, except `http://localhost` for development.
+        #[arg(long = "redirect-uri", required = true)]
+        redirect_uris: Vec<String>,
+        /// A site that cannot keep a secret (an application running in the
+        /// browser or on a phone): no secret is issued.
+        #[arg(long)]
+        public: bool,
+    },
+    /// List the registered sites.
+    List,
+    /// Remove a site. People can no longer sign in to it through this
+    /// server, and the identity each person chose for it is forgotten.
+    Remove {
+        /// The `client_id` printed by `add` and `list`.
+        client_id: String,
     },
 }
 
@@ -213,6 +249,66 @@ async fn rotate_oidc_key(db: &config::DatabaseConfig) {
     );
 }
 
+/// Handles `leaf client …`. Results go to standard output, one `key=value`
+/// or one site per line, so that a script can read them; everything meant
+/// for a person goes to standard error.
+async fn client_command(db: &config::DatabaseConfig, action: ClientCommand) {
+    let store = EncryptedStore::new(&db_url(&db.path), load_master_key())
+        .await
+        .expect("failed to open or migrate database");
+    match action {
+        ClientCommand::Add {
+            name,
+            redirect_uris,
+            public,
+        } => match store.create_client(&name, &redirect_uris, !public).await {
+            Ok((client, secret)) => {
+                println!("client_id={}", client.client_id);
+                eprintln!("✓ Registered \"{}\".", client.name);
+                if let Some(secret) = secret {
+                    println!("client_secret={}", *secret);
+                    eprintln!("  The secret is shown this once and stored hashed: keep it now.");
+                }
+            }
+            Err(e) => {
+                eprintln!("✗ {e}");
+                std::process::exit(2);
+            }
+        },
+        ClientCommand::List => {
+            let clients = store.list_clients().await.expect("failed to list clients");
+            for client in &clients {
+                println!(
+                    "{}\t{}\t{}\t{}",
+                    client.client_id,
+                    if client.confidential {
+                        "confidential"
+                    } else {
+                        "public"
+                    },
+                    client.name,
+                    client.redirect_uris.join(" ")
+                );
+            }
+            if clients.is_empty() {
+                eprintln!("No site is registered.");
+            }
+        }
+        ClientCommand::Remove { client_id } => {
+            let existed = store
+                .delete_client(&client_id)
+                .await
+                .expect("failed to remove the client");
+            if existed {
+                eprintln!("✓ Removed {client_id}.");
+            } else {
+                eprintln!("✗ No site is registered as {client_id}.");
+                std::process::exit(2);
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
@@ -272,6 +368,11 @@ async fn main() {
     if let Some(Command::RotateOidcKey) = cli.command {
         let db = config::load_database(cli.config.as_deref()).expect("configuration error");
         rotate_oidc_key(&db).await;
+        return;
+    }
+    if let Some(Command::Client { action }) = cli.command {
+        let db = config::load_database(cli.config.as_deref()).expect("configuration error");
+        client_command(&db, action).await;
         return;
     }
 
