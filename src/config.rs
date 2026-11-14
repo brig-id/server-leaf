@@ -186,20 +186,6 @@ fn env_settings(prefix: &'static str) -> Env {
         .split("__")
 }
 
-/// The prefix the settings had when this edition was named `leaf`. It is
-/// still read, below `BRIGID_`, and reported by [`legacy_env_settings`].
-const LEGACY_PREFIX: &str = "LEAF_";
-
-/// The names of the settings still given under the earlier prefix.
-pub fn legacy_env_settings() -> Vec<String> {
-    let mut names: Vec<String> = std::env::vars()
-        .map(|(name, _)| name)
-        .filter(|name| name.starts_with(LEGACY_PREFIX))
-        .collect();
-    names.sort();
-    names
-}
-
 /// Builds the shared TOML+env figment used by both [`load`] and
 /// [`load_database`], so the two never drift on precedence/prefix rules.
 fn figment(config_path: Option<&std::path::Path>) -> Figment {
@@ -207,9 +193,7 @@ fn figment(config_path: Option<&std::path::Path>) -> Figment {
     if let Some(path) = config_path {
         figment = figment.merge(Toml::file(path));
     }
-    figment
-        .merge(env_settings(LEGACY_PREFIX))
-        .merge(env_settings("BRIGID_"))
+    figment.merge(env_settings("BRIGID_"))
 }
 
 /// Load the merged configuration.
@@ -410,17 +394,15 @@ mod tests {
     }
 
     /// `BRIGID_MASTER_KEY` shares the prefix of the settings and must never
-    /// become one; the earlier `LEAF_` prefix is still read, and `BRIGID_`
-    /// wins over it.
+    /// become one.
     #[test]
     #[allow(clippy::result_large_err)]
     fn only_settings_are_read_from_the_environment() {
         figment::Jail::expect_with(|jail| {
             jail.set_env("BRIGID_MASTER_KEY", "ab".repeat(32));
             jail.set_env("BRIGID_MASTER_KEY_FILE", "/run/secrets/key");
-            jail.set_env("BRIGID_SERVER__DOMAIN", "new.example.com");
-            jail.set_env("LEAF_SERVER__DOMAIN", "old.example.com");
-            jail.set_env("LEAF_SERVER__PORT", "9001");
+            jail.set_env("BRIGID_SERVER__DOMAIN", "id.example.com");
+            jail.set_env("BRIGID_SERVER__PORT", "9001");
             jail.set_env("BRIGID_SECURITY__SIGNUP_OPEN", "false");
 
             let figment = figment(None);
@@ -428,13 +410,9 @@ mod tests {
             assert!(figment.find_value("master_key_file").is_err());
 
             let cfg: Config = figment.extract()?;
-            assert_eq!(cfg.server.domain, "new.example.com");
+            assert_eq!(cfg.server.domain, "id.example.com");
             assert_eq!(cfg.server.port, 9001);
             assert!(!cfg.security.signup_open);
-            assert_eq!(
-                legacy_env_settings(),
-                ["LEAF_SERVER__DOMAIN", "LEAF_SERVER__PORT"]
-            );
             Ok(())
         });
     }

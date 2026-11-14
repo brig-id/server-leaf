@@ -283,9 +283,10 @@ fn rotate_oidc_key_publishes_both_keys() {
             .collect()
     };
 
-    // First start stores the key earlier releases derived, under kid "v1".
+    // First start draws a key and publishes it.
     let (mut child, addr) = start(free_port());
-    assert_eq!(kids(addr), ["v1"]);
+    let first = kids(addr);
+    assert_eq!(first.len(), 1, "{first:?}");
     child.kill().ok();
     child.wait().ok();
 
@@ -303,6 +304,6 @@ fn rotate_oidc_key_publishes_both_keys() {
     child.kill().ok();
     child.wait().ok();
     assert_eq!(published.len(), 2, "{published:?}");
-    assert_ne!(published[0], "v1", "the new key comes first");
-    assert_eq!(published[1], "v1", "the retired key stays published");
+    assert_ne!(published[0], first[0], "the new key comes first");
+    assert_eq!(published[1], first[0], "the retired key stays published");
 }

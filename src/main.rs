@@ -28,7 +28,6 @@ use url::Url;
 
 use brigid_api::{AppState, build_router};
 use brigid_crypto::MasterKey;
-use brigid_identity::derive_vsid_salt;
 use brigid_oidc::OidcSigningKey;
 use brigid_store::EncryptedStore;
 use brigid_webauthn::WebauthnService;
@@ -146,18 +145,9 @@ async fn rotate_key(db: &config::DatabaseConfig, old_path: &Path, new_path: &Pat
     let new_master = MasterKey::from_file(new_path)
         .expect("failed to read the new master key file (64 hex chars expected)");
 
-    let derived_vsid_salt = derive_vsid_salt(&old_master);
     let mut store = EncryptedStore::new(&db_url(&db.path), old_master)
         .await
         .expect("failed to open or migrate database");
-
-    // A database last started by a seedling that derived the VSID secret from the
-    // master key has none stored yet. Record it under the old key first, or
-    // the rotation would leave nothing to compute the existing VSIDs with.
-    store
-        .vsid_secret(&derived_vsid_salt)
-        .await
-        .expect("failed to read or store the VSID secret");
 
     store
         .rotate_master_key(new_master)
@@ -190,15 +180,9 @@ fn load_master_key() -> MasterKey {
     }
 }
 
-/// The current OIDC key and the retired ones still in grace (core#22).
-///
-/// On first start with an empty `oidc_keys` table, the key derived from the
-/// master key the way earlier releases did is stored under its old `kid`
-/// ("v1"), so tokens issued before the upgrade keep verifying.
-async fn load_oidc_keys(
-    store: &EncryptedStore,
-    legacy_seed: &[u8; 32],
-) -> (OidcSigningKey, Vec<OidcSigningKey>) {
+/// The current OIDC key and the retired ones still in grace. A database
+/// that has none yet gets a new random one.
+async fn load_oidc_keys(store: &EncryptedStore) -> (OidcSigningKey, Vec<OidcSigningKey>) {
     let pruned = store
         .prune_oidc_keys(time::OffsetDateTime::now_utc() - OIDC_GRACE)
         .await
@@ -214,8 +198,9 @@ async fn load_oidc_keys(
         .await
         .expect("failed to read OIDC signing keys");
     if keys.is_empty() {
+        let seed = OidcSigningKey::generate().to_raw_bytes();
         store
-            .add_oidc_signing_key("v1", legacy_seed)
+            .add_oidc_signing_key(OidcSigningKey::from_seed(&seed).kid(), &seed)
             .await
             .expect("failed to store the initial OIDC signing key");
         keys = store
@@ -383,17 +368,7 @@ async fn main() {
     // the config file (see `load_master_key`).
     let master = load_master_key();
 
-    // The VSID secret as it was obtained before being stored: kept by a
-    // database whose accounts already have VSIDs (see `vsid_secret`). Derived
-    // now, since the store takes `master`.
-    let derived_vsid_salt = derive_vsid_salt(&master);
-
     // -- Database ------------------------------------------------------------
-    // The key earlier releases derived from the master key: stored on first
-    // start (see `load_oidc_keys`), derived now since the store takes `master`.
-    let legacy_oidc_seed =
-        brigid_crypto::hkdf::derive_user_key(&master, b"oidc-signing-key", b"oidc-ed25519")
-            .expect("HKDF key derivation failed");
     let store = EncryptedStore::new(&db_url(&cfg.database.path), master)
         .await
         .expect("failed to open or migrate database");
@@ -401,13 +376,12 @@ async fn main() {
     // -- VSID secret ---------------------------------------------------------
     // Stored, so that rotating the master key does not change every VSID.
     let vsid_salt = *store
-        .vsid_secret(&derived_vsid_salt)
+        .vsid_secret()
         .await
         .expect("failed to read or store the VSID secret");
 
     // -- OIDC signing keys ---------------------------------------------------
-    let (oidc_key, retired_oidc_keys) = load_oidc_keys(&store, &legacy_oidc_seed).await;
-    drop(legacy_oidc_seed);
+    let (oidc_key, retired_oidc_keys) = load_oidc_keys(&store).await;
     tracing::info!(
         kid = oidc_key.kid(),
         retired = retired_oidc_keys.len(),
@@ -454,13 +428,6 @@ async fn main() {
     state.signup_open = cfg.security.signup_open;
     if !state.signup_open {
         tracing::info!("sign-up is closed: no account can be created on this server");
-    }
-    let legacy = config::legacy_env_settings();
-    if !legacy.is_empty() {
-        tracing::warn!(
-            settings = ?legacy,
-            "settings given under the earlier LEAF_ prefix: rename them to BRIGID_, the old prefix will stop being read"
-        );
     }
     let state = Arc::new(state);
     let api_router = build_router(state, &cors_origins);
