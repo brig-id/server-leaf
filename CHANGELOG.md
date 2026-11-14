@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-14
+
+The first release under the name seedling, and a new start: it opens no
+database made by an earlier version.
+
 ### Changed
 
 - **This edition is named seedling** (was leaf). The repository is
@@ -29,12 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   A test fails if a scheme, a host or a wildcard comes back into it.
 - The image is built with no secret: the interface no longer needs a
   registry token nor an API key.
+- **The image embeds the rewritten interface** (brig-id/app#63): its own
+  design system on Qwik 2, in English and French, with nothing loaded from
+  another origin; sign-in at `/`, sign-up at `/signup/`.
 
 ### Added
 
 - `security.signup_open` (default `true`): `false` closes the creation of
   accounts; sign-in and recovery are untouched.
-
 - Websites can sign people in through `seedling` (brig-id/core#92):
   `/authorize`, `/token` and `/.well-known/openid-configuration` are served.
   Authorization Code flow with PKCE (`S256`, mandatory), ID tokens signed
