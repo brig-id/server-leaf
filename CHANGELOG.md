@@ -14,8 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `server-seedling`, the binary and its commands `seedling`, the image
   `ghcr.io/brig-id/seedling`, the metrics `brigid_http_*`.
 - **Settings are read under the `BRIGID_` prefix** (`BRIGID_SERVER__DOMAIN`…),
-  the same for the three editions. The earlier `LEAF_` prefix is still read
-  for now, below it, with a warning at start that names the settings to rename.
+  the same for the three editions. The `LEAF_` prefix is no longer read.
+- **A server starts again from an empty database.** The schema is one script
+  (brig-id/core#100), and a database created by 0.3 or earlier is refused at
+  start: nothing deployed had to be kept. With it go the first signing key and
+  the VSID secret derived from the master key: both are random, drawn at the
+  first start.
 - **Licence: AGPL-3.0-or-later** (was LGPL-3.0-or-later). Released versions
   keep the licence they were published under.
 - The server's DID document (`/.well-known/did.json`) is no longer served.
